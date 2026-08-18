@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nevus Browser</string>
+
+    <string name="bubble_channel_name">Download bubble</string>
+    <string name="bubble_channel_desc">Gelembung mengambang untuk mengunduh media yang terdeteksi di halaman aktif.</string>
+    <string name="bubble_notification_title">Nevus siap mengunduh</string>
+    <string name="bubble_notification_text">Ketuk gelembung untuk unduh video, audio, gambar, atau musik.</string>
+
+    <string name="overlay_permission_required">Perlu izin \"Muncul di atas aplikasi lain\" untuk menampilkan gelembung.</string>
+    <string name="grant_overlay_permission">Berikan izin overlay</string>
+    <string name="start_bubble">Aktifkan gelembung unduhan</string>
+    <string name="stop_bubble">Matikan gelembung</string>
+
+    <string name="download_started">Mengunduh %1$s</string>
+    <string name="download_done">Selesai: %1$s</string>
+    <string name="download_failed">Gagal: %1$s</string>
+
+    <string name="default_start_url">https://start.duckduckgo.com/</string>
+</resources>

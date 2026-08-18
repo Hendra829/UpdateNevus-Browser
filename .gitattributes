@@ -1,7 +1,8 @@
-# Store large binary artifacts in Git LFS so the working tree stays lean.
-# (*.zip excluded — account LFS budget exhausted; committed as regular blob.)
-*.apk filter=lfs diff=lfs merge=lfs -text
-*.aab filter=lfs diff=lfs merge=lfs -text
-*.jar filter=lfs diff=lfs merge=lfs -text
-*.so  filter=lfs diff=lfs merge=lfs -text
-*.zip !text !filter !merge !diff
+# Account LFS budget is exhausted — everything committed as regular git blobs.
+# Re-enable a rule below (change `-text` to `filter=lfs diff=lfs merge=lfs -text`)
+# once the account's LFS pack is topped up.
+*.apk -text
+*.aab -text
+*.zip -text
+*.jar -text
+*.so  -text
