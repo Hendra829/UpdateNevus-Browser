@@ -1,0 +1,13 @@
+# Android build outputs and IDE noise (in case sources are added later)
+.gradle/
+build/
+.idea/
+*.iml
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# OS junk
+.DS_Store
+Thumbs.db
