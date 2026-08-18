@@ -10,8 +10,11 @@
 #    curl -sSL -H "Authorization: Bearer $NEVUS_GH_TOKEN" \
 #         https://raw.githubusercontent.com/Hendra829/UpdateNevus-Browser/main/dist/install.sh | bash
 #
-#  Override ABI manual:
-#    bash install.sh arm64-v8a
+#  Default: unduh varian universal (jalan di device 64-bit apa pun).
+#  Override manual:
+#    bash install.sh arm64-v8a     # arm64-v8a saja
+#    bash install.sh x86_64        # x86_64 saja
+#    bash install.sh universal     # eksplisit universal
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -51,25 +54,24 @@ if [ ! -r /sdcard ]; then
     [ -r /sdcard ] || die "Izin storage belum diberikan. Jalankan ulang setelah setujui."
 fi
 
-# 4 ─ Deteksi ABI (arg 1 override otomatis).
-ABI="${1:-$(/system/bin/getprop ro.product.cpu.abi 2>/dev/null || echo unknown)}"
-case "$ABI" in
-    arm64-v8a) ;;
-    x86_64)    ;;
-    armeabi-v7a)
-        die "APK ini 64-bit only. Device armeabi-v7a (32-bit) tidak didukung."
-        ;;
-    *)
-        die "ABI tidak dikenal: '$ABI'. Coba manual: bash install.sh arm64-v8a"
-        ;;
-esac
+# 4 ─ Pilih APK. Default: universal (jalan di device 64-bit apa pun). Arg 1: paksa varian.
+if [ -n "${1:-}" ]; then
+    VARIANT="$1"
+    case "$VARIANT" in
+        arm64-v8a|x86_64|universal) ;;
+        armeabi-v7a) die "APK ini 64-bit only. Device armeabi-v7a (32-bit) tidak didukung." ;;
+        *) die "Argumen tidak dikenal: '$VARIANT'. Pakai: arm64-v8a | x86_64 | universal (default)" ;;
+    esac
+else
+    VARIANT="universal"
+fi
 
-APK_NAME="NevusBrowser-${VERSION}-debug-${ABI}.apk"
+APK_NAME="NevusBrowser-${VERSION}-debug-${VARIANT}.apk"
 URL_RAW="https://raw.githubusercontent.com/${REPO}/main/dist/${APK_NAME}"
 URL_API="https://api.github.com/repos/${REPO}/contents/dist/${APK_NAME}?ref=main"
 DEST="${DEST_DIR}/${APK_NAME}"
 
-log "ABI: $ABI"
+log "Varian APK: $VARIANT"
 log "Tujuan: $DEST"
 
 mkdir -p "$DEST_DIR"

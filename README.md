@@ -8,9 +8,11 @@ siap-pasang.
 ```
 UpdateNevus-Browser/
 ├── README.md                (dokumen ini)
-├── dist/                    APK debug siap pasang (per ABI)
-│   ├── NevusBrowser-v3.0.0-debug-arm64-v8a.apk    5.6 MB — kebanyakan HP 2018+
-│   └── NevusBrowser-v3.0.0-debug-x86_64.apk       5.6 MB — emulator / tablet x86
+├── dist/                    APK debug siap pasang
+│   ├── NevusBrowser-v3.0.0-debug-universal.apk    5.6 MB — RECOMMENDED, jalan di device 64-bit apa pun
+│   ├── NevusBrowser-v3.0.0-debug-arm64-v8a.apk    5.6 MB — arm64 saja (kebanyakan HP 2018+)
+│   ├── NevusBrowser-v3.0.0-debug-x86_64.apk       5.6 MB — x86_64 saja (emulator / tablet Intel)
+│   └── install.sh                                  4.7 KB — Termux one-liner installer
 └── source/                  Source Kotlin + Gradle (lihat source/README.md)
     ├── app/                 Modul aplikasi
     ├── build.gradle.kts
@@ -46,7 +48,7 @@ Skrip akan:
 
 1. Cek/pasang `curl` dan `termux-tools`
 2. Minta izin storage (kalau belum diberikan) — setujui pop-up
-3. Auto-deteksi ABI device (arm64-v8a / x86_64)
+3. Ambil varian **universal** (jalan di device 64-bit apa pun) — atau paksa per-ABI dengan `bash install.sh arm64-v8a`
 4. Download APK ke `/sdcard/Download/`
 5. Buka installer sistem — Anda tinggal ketuk "Install"
 
@@ -67,7 +69,7 @@ Cara buat token: https://github.com/settings/tokens → "Generate new token (cla
 ### B. Via ADB (dengan PC)
 
 ```bash
-adb install dist/NevusBrowser-v3.0.0-debug-arm64-v8a.apk
+adb install dist/NevusBrowser-v3.0.0-debug-universal.apk
 ```
 
 ### C. Manual copy
