@@ -32,13 +32,49 @@ Total kode aplikasi: **~2&thinsp;100 LOC Kotlin**, **19 file**.
 
 ## Pasang di device Android
 
+Ada tiga jalur. Pilih yang paling mudah untuk Anda.
+
+### A. Via Termux (paling cocok tanpa PC)
+
+Jalankan **satu baris** di Termux:
+
 ```bash
-# 1. Aktifkan "Install unknown apps" untuk file manager Anda di Settings.
-# 2. Salin file APK sesuai arsitektur device:
+curl -sSL https://raw.githubusercontent.com/Hendra829/UpdateNevus-Browser/main/dist/install.sh | bash
+```
+
+Skrip akan:
+
+1. Cek/pasang `curl` dan `termux-tools`
+2. Minta izin storage (kalau belum diberikan) — setujui pop-up
+3. Auto-deteksi ABI device (arm64-v8a / x86_64)
+4. Download APK ke `/sdcard/Download/`
+5. Buka installer sistem — Anda tinggal ketuk "Install"
+
+**Kalau repo private**, tambahkan token dulu:
+
+```bash
+export NEVUS_GH_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxxxxxx"
+curl -sSL -H "Authorization: Bearer $NEVUS_GH_TOKEN" \
+     https://raw.githubusercontent.com/Hendra829/UpdateNevus-Browser/main/dist/install.sh | bash
+```
+
+Cara buat token: https://github.com/settings/tokens → "Generate new token (classic)"
+→ scope hanya centang `repo` → copy hasilnya.
+
+> Kalau tidak mau pakai token, buat repo ini **public** di GitHub Settings —
+> maka one-liner tanpa token langsung jalan.
+
+### B. Via ADB (dengan PC)
+
+```bash
 adb install dist/NevusBrowser-v3.0.0-debug-arm64-v8a.apk
 ```
 
-Atau salin APK ke device via file manager, ketuk untuk pasang.
+### C. Manual copy
+
+Salin file `.apk` sesuai ABI ke penyimpanan HP via file manager, ketuk untuk
+pasang. Aktifkan "Install unknown apps" untuk file manager Anda di Settings
+kalau muncul dialog blocking.
 
 ## Pemakaian
 
