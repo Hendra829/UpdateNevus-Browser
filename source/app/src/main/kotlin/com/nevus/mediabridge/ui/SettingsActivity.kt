@@ -116,6 +116,9 @@ class SettingsActivity : AppCompatActivity() {
             renderCsprngSnapshot()
             Toast.makeText(this, R.string.settings_csprng_reseed_done, Toast.LENGTH_SHORT).show()
         }
+        val bitmapView = findViewById<RandomBitmapView>(R.id.randomBitmapView)
+        bitmapView.refresh()
+        findViewById<View>(R.id.refreshBitmapBtn).setOnClickListener { bitmapView.refresh() }
     }
 
     private fun renderCsprngSnapshot() {
@@ -142,6 +145,11 @@ class SettingsActivity : AppCompatActivity() {
                 lastReport.chiSquareP,
             )
         }
+
+        // NIST default significance level (see LiveStatisticalValidator's own kdoc) — the
+        // validator doesn't expose its configured threshold, and this app never changes it from
+        // the default, so it's safe to mirror here for the trend line's reference marker.
+        findViewById<PValueTrendView>(R.id.pValueTrendView).setData(snapshot.validator.recentReports, alarmThreshold = 0.01)
     }
 
     private fun renderRecoverySection() {

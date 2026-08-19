@@ -12,8 +12,10 @@ import com.nevus.mediabridge.R
 import com.nevus.mediabridge.download.DownloadPlan
 import com.nevus.mediabridge.download.FloatingBubbleService
 import com.nevus.mediabridge.download.ManifestKind
+import com.nevus.mediabridge.download.MediaKind
 import com.nevus.mediabridge.download.PlaylistParser
 import com.nevus.mediabridge.download.QualityVariant
+import com.nevus.mediabridge.download.StickerMode
 import com.nevus.mediabridge.util.NevusSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -34,6 +36,13 @@ object DownloadOptionsDialog {
         val sourceQualitySpinner = view.findViewById<Spinner>(R.id.sourceQualitySpinner)
         val heightGroup = view.findViewById<RadioGroup>(R.id.dialogTargetHeightGroup)
         val enhanceCheckbox = view.findViewById<CheckBox>(R.id.enhanceCheckbox)
+        val stickerLabel = view.findViewById<TextView>(R.id.stickerLabel)
+        val stickerGroup = view.findViewById<RadioGroup>(R.id.stickerGroup)
+
+        if (detection.kind == MediaKind.IMAGE) {
+            stickerLabel.visibility = android.view.View.VISIBLE
+            stickerGroup.visibility = android.view.View.VISIBLE
+        }
 
         heightGroup.check(
             when (settings.defaultTargetHeight) {
@@ -77,6 +86,12 @@ object DownloadOptionsDialog {
                 val spinnerPos = sourceQualitySpinner.selectedItemPosition
                 val chosenVariant = if (spinnerPos > 0) variants.getOrNull(spinnerPos - 1) else null
 
+                val stickerMode = when (stickerGroup.checkedRadioButtonId) {
+                    R.id.stickerBorder -> StickerMode.BORDER
+                    R.id.stickerBackgroundRemoval -> StickerMode.BACKGROUND_REMOVAL
+                    else -> StickerMode.NONE
+                }
+
                 val plan = DownloadPlan(
                     detection = detection,
                     audioOnly = audioOnly,
@@ -84,6 +99,7 @@ object DownloadOptionsDialog {
                     chosenVariant = chosenVariant,
                     targetHeightPx = targetHeight,
                     enhance = enhanceCheckbox.isChecked,
+                    stickerMode = stickerMode,
                 )
                 FloatingBubbleService.submitPlan(context.applicationContext, plan)
             }

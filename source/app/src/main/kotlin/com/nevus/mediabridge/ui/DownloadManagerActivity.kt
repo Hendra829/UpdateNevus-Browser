@@ -1,5 +1,6 @@
 package com.nevus.mediabridge.ui
 
+import android.app.AlertDialog
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
@@ -8,9 +9,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.widget.Toast
 import com.nevus.mediabridge.R
 import com.nevus.mediabridge.download.DownloadHistoryStore
 import com.nevus.mediabridge.download.FloatingBubbleService
+import com.nevus.mediabridge.media.KenBurnsAnimator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -44,17 +47,25 @@ class DownloadManagerActivity : AppCompatActivity() {
             adapter = pendingAdapter
         }
 
-        activeAdapter = ActiveDownloadAdapter()
+        activeAdapter = ActiveDownloadAdapter(
+            onPause = { txId -> FloatingBubbleService.requestCancel(txId, discard = false) },
+            onCancel = { txId -> FloatingBubbleService.requestCancel(txId, discard = true) },
+        )
         findViewById<RecyclerView>(R.id.progressList).apply {
             layoutManager = LinearLayoutManager(this@DownloadManagerActivity)
             adapter = activeAdapter
         }
 
-        historyAdapter = HistoryAdapter()
+        historyAdapter = HistoryAdapter(
+            onDelete = { entry -> deleteHistoryEntry(entry.txId) },
+            onMakeSticker = { entry -> entry.outputPath?.let { StickerChoiceDialog.show(this, lifecycleScope, it) } },
+            onMakeAnimation = { entry -> entry.outputPath?.let { makeAnimation(it) } },
+        )
         findViewById<RecyclerView>(R.id.historyList).apply {
             layoutManager = LinearLayoutManager(this@DownloadManagerActivity)
             adapter = historyAdapter
         }
+        findViewById<View>(R.id.deleteAllBtn).setOnClickListener { confirmDeleteAllHistory() }
 
         observeLiveState()
     }
@@ -92,5 +103,44 @@ class DownloadManagerActivity : AppCompatActivity() {
             historyAdapter.submit(entries)
             historyEmptyLabel.visibility = if (entries.isEmpty()) View.VISIBLE else View.GONE
         }
+    }
+
+    private fun deleteHistoryEntry(txId: String) {
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                DownloadHistoryStore(File(applicationContext.filesDir, "state")).remove(txId)
+            }
+            reloadHistory()
+        }
+    }
+
+    private fun makeAnimation(inputPath: String) {
+        lifecycleScope.launch {
+            val input = File(inputPath)
+            val outputPath = File(input.parentFile, "${input.nameWithoutExtension}-animated.gif").absolutePath
+            val ok = withContext(Dispatchers.Default) { KenBurnsAnimator.generate(inputPath, outputPath) }
+            val message = if (ok) {
+                getString(R.string.download_done, File(outputPath).name)
+            } else {
+                getString(R.string.download_failed, File(inputPath).name)
+            }
+            Toast.makeText(this@DownloadManagerActivity, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun confirmDeleteAllHistory() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.download_manager_delete_all_title)
+            .setMessage(R.string.download_manager_delete_all_message)
+            .setPositiveButton(R.string.action_delete) { _, _ ->
+                lifecycleScope.launch {
+                    withContext(Dispatchers.IO) {
+                        DownloadHistoryStore(File(applicationContext.filesDir, "state")).clear()
+                    }
+                    reloadHistory()
+                }
+            }
+            .setNegativeButton(R.string.download_options_cancel, null)
+            .show()
     }
 }

@@ -14,7 +14,9 @@ import androidx.core.content.ContextCompat
 import com.nevus.mediabridge.MainActivity
 import com.nevus.mediabridge.R
 import com.nevus.mediabridge.media.EnhanceEvent
+import com.nevus.mediabridge.media.ImageEnhancer
 import com.nevus.mediabridge.media.MediaEnhancer
+import com.nevus.mediabridge.media.StickerMaker
 import com.nevus.mediabridge.util.NevusLog
 import com.nevus.mediabridge.util.NevusSettings
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -57,6 +60,7 @@ class FloatingBubbleService : Service() {
     private var eventJob: Job? = null
     private var pendingJob: Job? = null
     private var plannedJob: Job? = null
+    private var cancelJob: Job? = null
 
     private val history: DownloadHistoryStore by lazy {
         DownloadHistoryStore(File(applicationContext.filesDir, "state"))
@@ -95,6 +99,7 @@ class FloatingBubbleService : Service() {
         subscribeToDownloadEvents()
         subscribeToPendingDetections()
         subscribeToPlannedDownloads()
+        subscribeToCancelRequests()
         return START_STICKY
     }
 
@@ -107,6 +112,7 @@ class FloatingBubbleService : Service() {
         eventJob?.cancel()
         pendingJob?.cancel()
         plannedJob?.cancel()
+        cancelJob?.cancel()
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -180,6 +186,13 @@ class FloatingBubbleService : Service() {
         }
     }
 
+    private fun subscribeToCancelRequests() {
+        cancelJob?.cancel()
+        cancelJob = serviceScope.launch {
+            cancelRequests.collect { req -> engine?.cancel(req.txId, req.discard) }
+        }
+    }
+
     @androidx.media3.common.util.UnstableApi
     private fun subscribeToPlannedDownloads() {
         plannedJob?.cancel()
@@ -223,15 +236,44 @@ class FloatingBubbleService : Service() {
             eng.enqueue(request)
         }
 
-        if (!plan.enhance) return
+        if (!plan.enhance && plan.stickerMode == StickerMode.NONE) return
 
         val terminal = eng.events.first { it.txId == txId && (it is DownloadEvent.Completed || it is DownloadEvent.Failed || it is DownloadEvent.Cancelled) }
         val completed = terminal as? DownloadEvent.Completed ?: return
-        runEnhancement(completed.outputPath, plan)
+
+        if (plan.enhance) runEnhancement(completed.outputPath, plan)
+        if (plan.stickerMode != StickerMode.NONE && plan.detection.kind == MediaKind.IMAGE) {
+            runStickerMaking(completed.outputPath, plan.stickerMode)
+        }
+    }
+
+    private suspend fun runStickerMaking(inputPath: String, mode: StickerMode) {
+        val input = File(inputPath)
+        val outputPath = File(input.parentFile, "${input.nameWithoutExtension}-sticker.webp").absolutePath
+        val ok = withContext(Dispatchers.Default) {
+            when (mode) {
+                StickerMode.BORDER -> StickerMaker.simpleBorder(inputPath, outputPath)
+                StickerMode.BACKGROUND_REMOVAL -> StickerMaker.removeBackground(inputPath, outputPath)
+                StickerMode.NONE -> false
+            }
+        }
+        if (ok) {
+            NevusLog.i(TAG, "Sticker ready: $outputPath")
+            Toast.makeText(this, getString(R.string.download_done, File(outputPath).name), Toast.LENGTH_SHORT).show()
+        } else {
+            NevusLog.w(TAG, "Sticker creation failed for $inputPath")
+            Toast.makeText(this, getString(R.string.download_failed, File(inputPath).name), Toast.LENGTH_LONG).show()
+        }
     }
 
     @androidx.media3.common.util.UnstableApi
     private suspend fun runEnhancement(inputPath: String, plan: DownloadPlan) {
+        // media3 Transformer handles audio/video containers, not single images — the image path
+        // is its own lightweight ImageEnhancer (ColorMatrix contrast + convolution sharpen).
+        if (plan.detection.kind == MediaKind.IMAGE) {
+            runImageEnhancement(inputPath)
+            return
+        }
         val input = File(inputPath)
         val ext = if (plan.audioOnly) "m4a" else "mp4"
         val outputPath = File(input.parentFile, "${input.nameWithoutExtension}-enhanced.$ext").absolutePath
@@ -250,6 +292,19 @@ class FloatingBubbleService : Service() {
                     EnhanceEvent.Started -> Unit
                 }
             }
+    }
+
+    private suspend fun runImageEnhancement(inputPath: String) {
+        val input = File(inputPath)
+        val outputPath = File(input.parentFile, "${input.nameWithoutExtension}-enhanced.png").absolutePath
+        val ok = withContext(Dispatchers.Default) { ImageEnhancer.enhance(inputPath, outputPath) }
+        if (ok) {
+            NevusLog.i(TAG, "Enhanced image ready: $outputPath")
+            Toast.makeText(this, getString(R.string.download_done, File(outputPath).name), Toast.LENGTH_SHORT).show()
+        } else {
+            NevusLog.w(TAG, "Image enhancement failed for $inputPath")
+            Toast.makeText(this, getString(R.string.download_failed, File(inputPath).name), Toast.LENGTH_LONG).show()
+        }
     }
 
     // ─────────── helpers ───────────
@@ -342,6 +397,16 @@ class FloatingBubbleService : Service() {
                 .onFailure { NevusLog.w(TAG, "submitPlan: startForegroundService failed", it) }
         }
 
+        private val cancelRequests = MutableSharedFlow<CancelRequest>(
+            extraBufferCapacity = 16,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+
+        /** Stop a running download — [discard] false pauses (resumable later), true cancels for good. */
+        fun requestCancel(txId: String, discard: Boolean) {
+            cancelRequests.tryEmit(CancelRequest(txId, discard))
+        }
+
         /**
          * Push a newly-detected media URL into the bubble. Deduplicates by URL to prevent the
          * badge from ballooning when a video sends many range requests for the same asset.
@@ -390,4 +455,6 @@ class FloatingBubbleService : Service() {
         val discoveredAtMs: Long,
         val referer: String? = null,
     )
+
+    private data class CancelRequest(val txId: String, val discard: Boolean)
 }

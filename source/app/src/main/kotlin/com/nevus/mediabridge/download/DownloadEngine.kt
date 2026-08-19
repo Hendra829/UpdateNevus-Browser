@@ -72,6 +72,9 @@ class DownloadEngine(
 
     private val jobs = ConcurrentHashMap<String, Job>()
 
+    /** txIds whose partial `.part` file should be deleted (not kept for resume) once cancelled. */
+    private val discardOnCancel = ConcurrentHashMap<String, Boolean>()
+
     /** Enqueue a download. The returned [Job] can be cancelled directly, or via [cancel]. */
     fun enqueue(request: DownloadRequest): Job {
         jobs[request.txId]?.let { existing -> if (existing.isActive) return existing }
@@ -81,7 +84,17 @@ class DownloadEngine(
         return job
     }
 
-    fun cancel(txId: String) {
+    /**
+     * Stop a running download.
+     *
+     * [discardPartial] `false` (default) is "pause" — the `.part` sidecar is kept, so a later
+     * [enqueue] for the same target resumes from here (see [run]'s Range-request logic).
+     * `true` is "cancel" — the partial bytes are deleted; a retry starts from scratch.
+     * ([enqueueVariant] downloads never keep partial bytes on cancel regardless of this flag —
+     * segment-level resume is out of scope, see [runVariant].)
+     */
+    fun cancel(txId: String, discardPartial: Boolean = false) {
+        if (discardPartial) discardOnCancel[txId] = true
         jobs[txId]?.cancel(CancellationException("cancelled by caller"))
     }
 
@@ -192,7 +205,11 @@ class DownloadEngine(
             triggerMediaScan(target, request.kind, request.fileName ?: target.name)
             emit(DownloadEvent.Completed(request.txId, target.absolutePath, sha, read))
         } catch (ce: CancellationException) {
-            // Keep the .part on cancel — a later enqueue() for the same target resumes from here.
+            // "Pause" (default) keeps the .part — a later enqueue() for the same target resumes
+            // from here. "Cancel" (discardOnCancel) means give up entirely — delete it.
+            if (discardOnCancel.remove(request.txId) == true) {
+                runCatching { partFile.delete() }
+            }
             emit(DownloadEvent.Cancelled(request.txId))
             throw ce
         } catch (t: Throwable) {
@@ -275,6 +292,8 @@ class DownloadEngine(
             triggerMediaScan(target, request.kind, request.fileName ?: target.name)
             emit(DownloadEvent.Completed(request.txId, target.absolutePath, sha, read))
         } catch (ce: CancellationException) {
+            // No per-segment resume for HLS/DASH variants — always discard, "pause" == "cancel" here.
+            discardOnCancel.remove(request.txId)
             runCatching { partFile.delete() }
             emit(DownloadEvent.Cancelled(request.txId))
             throw ce

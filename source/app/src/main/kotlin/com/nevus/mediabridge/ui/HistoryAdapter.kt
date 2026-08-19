@@ -7,10 +7,15 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.nevus.mediabridge.R
 import com.nevus.mediabridge.download.DownloadHistoryEntry
+import com.nevus.mediabridge.download.MediaKind
 import java.text.DateFormat
 import java.util.Date
 
-class HistoryAdapter : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
+class HistoryAdapter(
+    private val onDelete: (DownloadHistoryEntry) -> Unit,
+    private val onMakeSticker: (DownloadHistoryEntry) -> Unit,
+    private val onMakeAnimation: (DownloadHistoryEntry) -> Unit,
+) : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
 
     private var items: List<DownloadHistoryEntry> = emptyList()
 
@@ -24,7 +29,8 @@ class HistoryAdapter : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
         return ViewHolder(view)
     }
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) = holder.bind(items[position])
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) =
+        holder.bind(items[position], onDelete, onMakeSticker, onMakeAnimation)
 
     override fun getItemCount(): Int = items.size
 
@@ -32,8 +38,17 @@ class HistoryAdapter : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
         private val statusIcon: TextView = itemView.findViewById(R.id.historyStatusIcon)
         private val fileName: TextView = itemView.findViewById(R.id.historyFileName)
         private val subtitle: TextView = itemView.findViewById(R.id.historySubtitle)
+        private val deleteBtn: View = itemView.findViewById(R.id.historyDeleteBtn)
+        private val imageActions: View = itemView.findViewById(R.id.historyImageActions)
+        private val stickerBtn: View = itemView.findViewById(R.id.historyStickerBtn)
+        private val animateBtn: View = itemView.findViewById(R.id.historyAnimateBtn)
 
-        fun bind(entry: DownloadHistoryEntry) {
+        fun bind(
+            entry: DownloadHistoryEntry,
+            onDelete: (DownloadHistoryEntry) -> Unit,
+            onMakeSticker: (DownloadHistoryEntry) -> Unit,
+            onMakeAnimation: (DownloadHistoryEntry) -> Unit,
+        ) {
             val ok = entry.status == DownloadHistoryEntry.Status.COMPLETED
             statusIcon.text = if (ok) "✓" else "✕"
             fileName.text = entry.fileName
@@ -43,6 +58,11 @@ class HistoryAdapter : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
             } else {
                 "${entry.kind} • ${entry.failureMessage ?: "gagal"} • $when_"
             }
+            deleteBtn.setOnClickListener { onDelete(entry) }
+
+            imageActions.visibility = if (ok && entry.kind == MediaKind.IMAGE) View.VISIBLE else View.GONE
+            stickerBtn.setOnClickListener { onMakeSticker(entry) }
+            animateBtn.setOnClickListener { onMakeAnimation(entry) }
         }
     }
 }

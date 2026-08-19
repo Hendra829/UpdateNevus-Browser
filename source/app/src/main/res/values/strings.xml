@@ -19,6 +19,9 @@
     <string name="download_done">Selesai: %1$s</string>
     <string name="download_failed">Gagal: %1$s</string>
     <string name="download_queued">Antre: %1$s</string>
+    <string name="download_queued_generic">Gambar ditambahkan ke antrean unduhan</string>
+    <string name="save_image_prompt">Simpan gambar ini?</string>
+    <string name="save_image_action">Simpan gambar</string>
 
     <string name="action_back">Kembali</string>
     <string name="action_forward">Maju</string>
@@ -58,6 +61,11 @@
     <string name="settings_csprng_no_report">Belum ada evaluasi statistik.</string>
     <string name="settings_csprng_reseed_now">Reseed sekarang</string>
     <string name="settings_csprng_reseed_done">CSPRNG di-reseed manual</string>
+    <string name="settings_csprng_trend_title">Tren p-value (20 evaluasi terakhir)</string>
+    <string name="settings_csprng_trend_desc">Merah=monobit, hijau=runs, ungu=chi-square. Garis putus-putus = ambang alarm — dipakai untuk memeriksa kualitas, bukan memprediksi hasil.</string>
+    <string name="settings_csprng_bitmap_title">Pola visual RNG</string>
+    <string name="settings_csprng_bitmap_desc">Sampel bit acak sebagai gambar — RNG yang sehat terlihat seperti noise polos. Garis/kotak yang terlihat menandakan bias, bukan pola yang bisa diprediksi.</string>
+    <string name="settings_csprng_bitmap_refresh">Ambil sampel baru</string>
 
     <string name="settings_recovery_summary">Startup terakhir: %1$s</string>
     <string name="settings_recovery_in_flight">Transaksi in-flight: %1$d</string>
@@ -67,6 +75,12 @@
     <string name="download_manager_section_history">Riwayat</string>
     <string name="download_manager_empty_active">Belum ada media terdeteksi di halaman aktif.</string>
     <string name="download_manager_empty_history">Belum ada riwayat unduhan.</string>
+    <string name="download_pause">Jeda</string>
+    <string name="download_cancel">Batalkan</string>
+    <string name="download_manager_delete_all">Hapus semua</string>
+    <string name="download_manager_delete_all_title">Hapus semua riwayat?</string>
+    <string name="download_manager_delete_all_message">Ini akan menghapus catatan riwayat unduhan (file yang sudah diunduh tidak ikut terhapus).</string>
+    <string name="action_delete">Hapus</string>
 
     <string name="download_options_title">Opsi unduhan</string>
     <string name="download_options_format">Format</string>
@@ -75,7 +89,13 @@
     <string name="download_options_source_quality">Kualitas sumber</string>
     <string name="download_options_source_quality_default">Kualitas sumber (default)</string>
     <string name="download_options_target_resolution">Resolusi target</string>
-    <string name="download_options_enhance">Tingkatkan kualitas (kontras/ketajaman video, bass/treble audio)</string>
+    <string name="download_options_enhance">Tingkatkan kualitas (kontras/ketajaman video &amp; gambar, bass/treble audio)</string>
+    <string name="sticker_title">Jadikan stiker</string>
+    <string name="sticker_none">Tidak</string>
+    <string name="sticker_border">Border sederhana (.webp)</string>
+    <string name="sticker_background_removal">Hapus background (AI, .webp)</string>
+    <string name="sticker_action">Jadikan stiker</string>
+    <string name="animate_action">Buat animasi</string>
     <string name="download_options_start">Mulai unduh</string>
     <string name="download_options_cancel">Batal</string>
 </resources>

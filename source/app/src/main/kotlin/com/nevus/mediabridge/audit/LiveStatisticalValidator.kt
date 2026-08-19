@@ -63,6 +63,9 @@ class LiveStatisticalValidator(
     private val lastReport = AtomicReference<TestReport?>(null)
     private val alarmListener = AtomicReference<((AlarmReport) -> Unit)?>(null)
 
+    /** Bounded trend history for the audit screen — oldest first, capped at [RECENT_REPORTS_CAP]. */
+    private val recentReports = ArrayDeque<TestReport>(RECENT_REPORTS_CAP)
+
     /** Register a callback invoked when the alarm gate opens. Only one listener at a time. */
     fun onAlarm(listener: (AlarmReport) -> Unit) {
         alarmListener.set(listener)
@@ -104,6 +107,10 @@ class LiveStatisticalValidator(
         toEval?.let { report ->
             lastReport.set(report)
             evaluations.incrementAndGet()
+            synchronized(recentReports) {
+                if (recentReports.size >= RECENT_REPORTS_CAP) recentReports.removeFirst()
+                recentReports.addLast(report)
+            }
             maybeAlarm(report)
         }
     }
@@ -153,6 +160,7 @@ class LiveStatisticalValidator(
         alarms = alarmCount.get(),
         lastReport = lastReport.get(),
         windowBytes = windowBytes,
+        recentReports = synchronized(recentReports) { recentReports.toList() },
     )
 
     enum class Trigger { MONOBIT, RUNS, CHI_SQUARE }
@@ -177,9 +185,12 @@ class LiveStatisticalValidator(
         val alarms: Long,
         val lastReport: TestReport?,
         val windowBytes: Int,
+        /** Oldest-first, capped trend history — for the audit screen's p-value trend view. */
+        val recentReports: List<TestReport>,
     )
 
     private companion object {
         const val TAG = "StatValidator"
+        const val RECENT_REPORTS_CAP = 20
     }
 }

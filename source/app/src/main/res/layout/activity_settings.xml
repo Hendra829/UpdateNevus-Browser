@@ -212,7 +212,57 @@
                     android:id="@+id/csprngReseedNowBtn"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
                     android:text="@string/settings_csprng_reseed_now" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_csprng_trend_title"
+                    android:textColor="@color/nevus_ink"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_csprng_trend_desc"
+                    android:textColor="@color/nevus_ink"
+                    android:alpha="0.7"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="8dp" />
+                <com.nevus.mediabridge.ui.PValueTrendView
+                    android:id="@+id/pValueTrendView"
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    android:background="@color/nevus_accent_soft"
+                    android:layout_marginBottom="20dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_csprng_bitmap_title"
+                    android:textColor="@color/nevus_ink"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_csprng_bitmap_desc"
+                    android:textColor="@color/nevus_ink"
+                    android:alpha="0.7"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="8dp" />
+                <com.nevus.mediabridge.ui.RandomBitmapView
+                    android:id="@+id/randomBitmapView"
+                    android:layout_width="160dp"
+                    android:layout_height="160dp"
+                    android:layout_marginBottom="8dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/refreshBitmapBtn"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_csprng_bitmap_refresh" />
             </LinearLayout>
 
             <!-- ─────────── Riwayat & Recovery ─────────── -->

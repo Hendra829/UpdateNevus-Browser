@@ -96,7 +96,42 @@
             android:id="@+id/enhanceCheckbox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
             android:text="@string/download_options_enhance" />
+
+        <TextView
+            android:id="@+id/stickerLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sticker_title"
+            android:textColor="@color/nevus_ink"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:layout_marginBottom="4dp" />
+
+        <RadioGroup
+            android:id="@+id/stickerGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone">
+
+            <RadioButton
+                android:id="@+id/stickerNone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="@string/sticker_none" />
+            <RadioButton
+                android:id="@+id/stickerBorder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/sticker_border" />
+            <RadioButton
+                android:id="@+id/stickerBackgroundRemoval"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/sticker_background_removal" />
+        </RadioGroup>
 
     </LinearLayout>
 </ScrollView>

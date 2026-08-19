@@ -49,6 +49,33 @@ class DownloadHistoryStore(private val root: File) {
         return out.asReversed()
     }
 
+    /** Remove a single entry by txId. No-op if it isn't present. */
+    @Synchronized
+    fun remove(txId: String) {
+        val kept = readAll().asReversed().filterNot { it.txId == txId }
+        rewrite(kept)
+    }
+
+    /** Wipe the whole history. */
+    @Synchronized
+    fun clear() {
+        if (file.exists()) file.delete()
+    }
+
+    private fun rewrite(entries: List<DownloadHistoryEntry>) {
+        val tmp = File(root, "download_history.jsonl.tmp")
+        FileOutputStream(tmp, /* append = */ false).use { out ->
+            entries.forEach { entry ->
+                out.write((json.encodeToString(entry) + "\n").toByteArray(Charsets.UTF_8))
+            }
+            out.fd.sync()
+        }
+        if (!tmp.renameTo(file)) {
+            file.delete()
+            tmp.renameTo(file)
+        }
+    }
+
     companion object {
         private const val TAG = "DownloadHistory"
 

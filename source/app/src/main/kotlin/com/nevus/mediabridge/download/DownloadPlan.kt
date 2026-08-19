@@ -11,4 +11,8 @@ data class DownloadPlan(
     val chosenVariant: QualityVariant?,
     val targetHeightPx: Int?,
     val enhance: Boolean,
+    val stickerMode: StickerMode = StickerMode.NONE,
 )
+
+/** How (if at all) to also produce a sticker-style copy of a downloaded image — see [com.nevus.mediabridge.media.StickerMaker]. */
+enum class StickerMode { NONE, BORDER, BACKGROUND_REMOVAL }

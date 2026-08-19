@@ -2,6 +2,7 @@ package com.nevus.mediabridge
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -30,6 +31,7 @@ import androidx.webkit.WebViewClientCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.nevus.mediabridge.download.FloatingBubbleService
+import com.nevus.mediabridge.download.MediaKind
 import com.nevus.mediabridge.download.MediaUrlDetector
 import com.nevus.mediabridge.ui.DownloadManagerActivity
 import com.nevus.mediabridge.ui.SettingsActivity
@@ -187,7 +189,34 @@ class MainActivity : AppCompatActivity() {
             FloatingBubbleService.notifyDetected(applicationContext, url, kind, referer = webView.url)
             Toast.makeText(this, getString(R.string.download_queued, guessedName), Toast.LENGTH_SHORT).show()
         }
+        wireImageLongPress()
         NevusLog.i(TAG, "WebView engine: ${PerformanceTuner.currentEngineInfo(this)}")
+    }
+
+    /**
+     * Long-press on any visible `<img>`/image-anchor offers "Simpan gambar" via WebView's own
+     * hit-test — this catches images that never surface through [MediaUrlDetector]'s network
+     * sniffing (e.g. a CSS `background-image`, or one already cached before this page load).
+     */
+    private fun wireImageLongPress() {
+        webView.setOnLongClickListener {
+            val result = webView.hitTestResult
+            val url = when (result.type) {
+                WebView.HitTestResult.IMAGE_TYPE,
+                WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> result.extra
+                else -> null
+            } ?: return@setOnLongClickListener false
+
+            AlertDialog.Builder(this)
+                .setMessage(R.string.save_image_prompt)
+                .setPositiveButton(R.string.save_image_action) { _, _ ->
+                    FloatingBubbleService.notifyDetected(applicationContext, url, MediaKind.IMAGE, referer = webView.url)
+                    Toast.makeText(this, R.string.download_queued_generic, Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton(R.string.download_options_cancel, null)
+                .show()
+            true
+        }
     }
 
     private fun wireUrlField() {

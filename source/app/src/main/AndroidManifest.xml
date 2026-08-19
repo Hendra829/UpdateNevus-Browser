@@ -48,6 +48,12 @@
         android:theme="@style/Theme.NevusBrowser"
         tools:targetApi="34">
 
+        <!-- Lets Play services pre-fetch the Subject Segmentation model after install, so the
+             first "hapus background" sticker request isn't stalled on a cold model download. -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="subject_segment" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

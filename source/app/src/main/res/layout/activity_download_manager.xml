@@ -92,13 +92,29 @@
                 android:layout_marginVertical="16dp"
                 android:background="@color/nevus_accent_soft" />
 
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/download_manager_section_history"
-                android:textColor="@color/nevus_ink"
-                android:textStyle="bold"
-                android:layout_marginBottom="8dp" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/download_manager_section_history"
+                    android:textColor="@color/nevus_ink"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/deleteAllBtn"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/download_manager_delete_all"
+                    android:textSize="12sp" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/historyEmptyLabel"
