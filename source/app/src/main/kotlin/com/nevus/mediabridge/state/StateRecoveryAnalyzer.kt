@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Process
 import com.nevus.mediabridge.BuildConfig
 import com.nevus.mediabridge.util.NevusLog
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -36,16 +37,18 @@ class StateRecoveryAnalyzer(context: Context) {
 
     private val stateRoot: File = File(context.filesDir, "state").apply { mkdirs() }
     private val sentinelFile: File = File(stateRoot, "sentinel.json")
-    private val registered: MutableMap<String, RecoverableStore<*>> = LinkedHashMap()
+    private val registered: MutableMap<String, RegisteredStore<*>> = LinkedHashMap()
 
     private val json = Json {
         prettyPrint = true
         ignoreUnknownKeys = true
+        encodeDefaults = false
     }
 
     /** Register a store the analyzer should scan on startup. Chainable. */
-    fun <T> register(name: String, payloadSerializer: kotlinx.serialization.KSerializer<T>): StateRecoveryAnalyzer {
-        registered[name] = RecoverableStore(stateRoot, name, payloadSerializer)
+    fun <T> register(name: String, payloadSerializer: KSerializer<T>): StateRecoveryAnalyzer {
+        val store = RecoverableStore(stateRoot, name, payloadSerializer)
+        registered[name] = RegisteredStore(store, payloadSerializer)
         return this
     }
 
@@ -57,50 +60,43 @@ class StateRecoveryAnalyzer(context: Context) {
         val t0 = System.currentTimeMillis()
         val previous = readSentinel()
         val currentBoot = readBootId()
-        // A sentinel file present at startup ⇒ the previous run did not reach `markCleanShutdown`.
-        // A missing sentinel ⇒ clean previous exit (or first-ever launch).
         val cleanShutdown = previous == null
+        val crossedBoot = previous != null && previous.bootId.isNotBlank() &&
+            currentBoot.isNotBlank() && previous.bootId != currentBoot
 
-        var inFlight = mutableListOf<InFlightTx>()
+        val inFlight = mutableListOf<InFlightTx>()
         var corrupted = 0
         var highest = 0L
 
-        for ((storeName, store) in registered) {
+        for ((storeName, entry) in registered) {
             val records = try {
-                store.readAll()
+                entry.store.readAll()
             } catch (t: Throwable) {
                 NevusLog.e(TAG, "Failed to read store '$storeName' — treating as corrupted", t)
                 corrupted += 1
                 continue
             }
-            val txnState = LinkedHashMap<String, RecoverableStore.Record<*>>()  // txId -> BEGIN record
+            val txnState = LinkedHashMap<String, RecoverableStore.Record<*>>()
             for (rec in records) {
                 if (rec.index > highest) highest = rec.index
                 when (rec.kind) {
                     RecoverableStore.Record.Kind.BEGIN -> txnState[rec.txId] = rec
-                    RecoverableStore.Record.Kind.COMMIT, RecoverableStore.Record.Kind.ABORT -> txnState.remove(rec.txId)
+                    RecoverableStore.Record.Kind.COMMIT,
+                    RecoverableStore.Record.Kind.ABORT -> txnState.remove(rec.txId)
                 }
             }
-            // Anything still in txnState is in-flight.
             txnState.values.forEach { begin ->
                 inFlight.add(
                     InFlightTx(
                         store = storeName,
                         txId = begin.txId,
                         startedAtMs = begin.timestampMs,
-                        beginPayloadJson = begin.payload?.let { any ->
-                            @Suppress("UNCHECKED_CAST")
-                            runCatching {
-                                // Best-effort JSON — falls back to toString on unrepresentable payloads.
-                                (any as? Any)?.toString()
-                            }.getOrNull()
-                        },
+                        beginPayloadJson = entry.encodePayload(begin),
                     )
                 )
             }
         }
 
-        // Write the current run's sentinel; if we're mid-startup and someone else wrote it, that's fine.
         writeSentinel(currentBoot)
 
         val report = RecoveryReport(
@@ -110,14 +106,15 @@ class StateRecoveryAnalyzer(context: Context) {
             corruptedRecordCount = corrupted,
             highestIndex = highest,
             elapsedMs = System.currentTimeMillis() - t0,
+            crossedBoot = crossedBoot,
         )
         NevusLog.i(TAG, "analyzeOnStartup: ${report.summary()}")
         return report
     }
 
     /**
-     * Mark a graceful shutdown — call from `Application`'s lifecycle or a `ProcessLifecycleOwner`
-     * on `Lifecycle.State.DESTROYED`. Missing on next startup ⇒ crash detection triggers.
+     * Mark a graceful shutdown — invoked from the [androidx.lifecycle.ProcessLifecycleOwner]
+     * `onStop` callback. A missing sentinel on next startup ⇒ clean previous exit.
      */
     fun markCleanShutdown() {
         if (sentinelFile.exists() && !sentinelFile.delete()) {
@@ -131,7 +128,7 @@ class StateRecoveryAnalyzer(context: Context) {
      */
     @Suppress("UNCHECKED_CAST")
     fun <T> store(name: String): RecoverableStore<T> =
-        (registered[name] as? RecoverableStore<T>)
+        (registered[name]?.store as? RecoverableStore<T>)
             ?: error("Store '$name' not registered before use")
 
     // ─────────── sentinel I/O ───────────
@@ -144,11 +141,14 @@ class StateRecoveryAnalyzer(context: Context) {
             bootId = bootId,
             startedAtMs = System.currentTimeMillis(),
         )
-        try {
-            sentinelFile.writeText(json.encodeToString(sentinel))
-        } catch (t: Throwable) {
-            NevusLog.e(TAG, "Failed to write sentinel", t)
-        }
+        runCatching {
+            val tmp = File(stateRoot, "sentinel.json.tmp")
+            tmp.writeText(json.encodeToString(sentinel))
+            if (!tmp.renameTo(sentinelFile)) {
+                sentinelFile.delete()
+                if (!tmp.renameTo(sentinelFile)) throw IllegalStateException("rename failed")
+            }
+        }.onFailure { NevusLog.e(TAG, "Failed to write sentinel", it) }
     }
 
     private fun readSentinel(): StartupSentinel? = try {
@@ -161,18 +161,9 @@ class StateRecoveryAnalyzer(context: Context) {
         null
     }
 
-    /**
-     * Device boot session identifier. Same across all processes started in the same boot;
-     * changes on reboot. Falls back to a synthetic per-process token pre-Android 8.
-     */
-    private fun readBootId(): String {
-        // /proc/sys/kernel/random/boot_id is a UUID that changes on every boot.
-        return try {
-            File("/proc/sys/kernel/random/boot_id").readText().trim().ifBlank { fallbackBootId() }
-        } catch (t: Throwable) {
-            fallbackBootId()
-        }
-    }
+    private fun readBootId(): String = runCatching {
+        File("/proc/sys/kernel/random/boot_id").readText().trim()
+    }.getOrDefault("").ifBlank { fallbackBootId() }
 
     private fun fallbackBootId(): String = "no-boot-id/${Build.FINGERPRINT.hashCode()}"
 
@@ -184,6 +175,19 @@ class StateRecoveryAnalyzer(context: Context) {
         val bootId: String,
         val startedAtMs: Long,
     )
+
+    private data class RegisteredStore<T>(
+        val store: RecoverableStore<T>,
+        val serializer: KSerializer<T>,
+    ) {
+        fun encodePayload(record: RecoverableStore.Record<*>): String? {
+            val payload = record.payload ?: return null
+            @Suppress("UNCHECKED_CAST")
+            return runCatching {
+                Json.encodeToString(serializer, payload as T)
+            }.getOrElse { payload.toString() }
+        }
+    }
 
     private companion object {
         const val TAG = "StateRecovery"

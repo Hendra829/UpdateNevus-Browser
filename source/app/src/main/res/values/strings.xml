@@ -6,6 +6,9 @@
     <string name="bubble_channel_desc">Gelembung mengambang untuk mengunduh media yang terdeteksi di halaman aktif.</string>
     <string name="bubble_notification_title">Nevus siap mengunduh</string>
     <string name="bubble_notification_text">Ketuk gelembung untuk unduh video, audio, gambar, atau musik.</string>
+    <string name="bubble_empty">Belum ada media terdeteksi</string>
+    <string name="bubble_content_description">Gelembung unduhan Nevus</string>
+    <string name="bubble_content_description_count">Gelembung unduhan Nevus, %1$d media menunggu</string>
 
     <string name="overlay_permission_required">Perlu izin \"Muncul di atas aplikasi lain\" untuk menampilkan gelembung.</string>
     <string name="grant_overlay_permission">Berikan izin overlay</string>
@@ -15,6 +18,14 @@
     <string name="download_started">Mengunduh %1$s</string>
     <string name="download_done">Selesai: %1$s</string>
     <string name="download_failed">Gagal: %1$s</string>
+    <string name="download_queued">Antre: %1$s</string>
+
+    <string name="action_back">Kembali</string>
+    <string name="action_forward">Maju</string>
+    <string name="action_reload">Muat ulang</string>
+
+    <string name="hint_url_or_search">URL atau kata pencarian</string>
+    <string name="no_handler_for_scheme">Tidak ada aplikasi untuk membuka tautan ini.</string>
 
     <string name="default_start_url">https://start.duckduckgo.com/</string>
 </resources>

@@ -19,6 +19,9 @@ data class RecoveryReport(
     val highestIndex: Long,
     /** Milliseconds spent analyzing. */
     val elapsedMs: Long,
+    /** True if the previous sentinel's bootId differs from the current one — a device reboot
+     *  happened between the crash and this launch. */
+    val crossedBoot: Boolean = false,
 ) {
 
     val hadCrash: Boolean get() = !cleanShutdown
@@ -29,6 +32,7 @@ data class RecoveryReport(
         append("; corrupted=").append(corruptedRecordCount)
         append("; highestIndex=").append(highestIndex)
         append("; elapsedMs=").append(elapsedMs)
+        if (crossedBoot) append("; crossedBoot")
         previousSentinel?.let {
             append("; prev pid=").append(it.pid)
             append(" version=").append(it.versionName)

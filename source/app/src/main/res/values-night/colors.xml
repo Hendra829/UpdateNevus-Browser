@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="nevus_ink">#F0EEE9</color>
+    <color name="nevus_ground">#0F1114</color>
+    <color name="nevus_surface">#1B1D22</color>
+    <color name="nevus_accent">#6FA3D6</color>
+    <color name="nevus_accent_soft">#1F2A3A</color>
+    <color name="nevus_bubble_fill">#E66FA3D6</color>
+    <color name="nevus_bubble_stroke">#141518</color>
+    <color name="nevus_kind_video">#E28A6E</color>
+    <color name="nevus_kind_audio">#4FB392</color>
+    <color name="nevus_kind_image">#E2B04E</color>
+    <color name="nevus_kind_music">#C46EA5</color>
+</resources>

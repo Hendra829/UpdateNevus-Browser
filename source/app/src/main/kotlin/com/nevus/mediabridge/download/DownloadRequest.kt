@@ -15,7 +15,7 @@ data class DownloadRequest(
     val kind: MediaKind,
     /** File name to save under. Optional; if null the engine derives one from the URL path. */
     val fileName: String? = null,
-    /** Optional Referer header — many CDNs deny direct access without it. */
+    /** Optional Referer header — many CDNs deny direct access without it. Ignored unless HTTPS. */
     val referer: String? = null,
     val userAgent: String? = null,
 ) {
@@ -29,19 +29,27 @@ data class DownloadRequest(
         return sanitize(last)
     }
 
-    private fun sanitize(name: String): String =
-        name.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120)
+    private fun sanitize(name: String): String {
+        val cleaned = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        // Strip leading dots so we never write a hidden file, and cap length.
+        return cleaned.trimStart('.').ifBlank { "media" }.take(120)
+    }
 }
 
 /**
- * Progress emitted by [DownloadEngine].
+ * Progress emitted by [DownloadEngine]. Subscribers filter by [txId].
  */
 sealed interface DownloadEvent {
     val txId: String
 
     data class Started(override val txId: String, val expectedBytes: Long?) : DownloadEvent
     data class Progress(override val txId: String, val bytesRead: Long, val totalBytes: Long?) : DownloadEvent
-    data class Completed(override val txId: String, val outputPath: String, val sha256Hex: String) : DownloadEvent
+    data class Completed(
+        override val txId: String,
+        val outputPath: String,
+        val sha256Hex: String,
+        val bytesWritten: Long,
+    ) : DownloadEvent
     data class Failed(override val txId: String, val message: String, val cause: Throwable? = null) : DownloadEvent
     data class Cancelled(override val txId: String) : DownloadEvent
 }

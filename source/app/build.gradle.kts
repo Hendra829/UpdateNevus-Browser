@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.constraintlayout)
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.service)
+    implementation(libs.lifecycle.process)
     implementation(libs.activity.ktx)
     implementation(libs.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
