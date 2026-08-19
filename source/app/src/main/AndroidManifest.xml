@@ -67,6 +67,16 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title" />
+
+        <activity
+            android:name=".ui.DownloadManagerActivity"
+            android:exported="false"
+            android:label="@string/download_manager_title" />
+
         <service
             android:name=".download.FloatingBubbleService"
             android:exported="false"

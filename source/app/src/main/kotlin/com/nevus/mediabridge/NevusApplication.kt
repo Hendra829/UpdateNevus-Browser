@@ -12,6 +12,7 @@ import com.nevus.mediabridge.audit.LiveStatisticalValidator
 import com.nevus.mediabridge.crypto.CSPRNGHealthMonitor
 import com.nevus.mediabridge.crypto.CSPRNGProvider
 import com.nevus.mediabridge.download.FloatingBubbleService
+import com.nevus.mediabridge.state.RecoveryReport
 import com.nevus.mediabridge.state.StateRecoveryAnalyzer
 import com.nevus.mediabridge.util.NevusLog
 import kotlinx.serialization.builtins.serializer
@@ -39,6 +40,8 @@ class NevusApplication : Application() {
         private set
     lateinit var csprngHealthMonitor: CSPRNGHealthMonitor
         private set
+    lateinit var lastRecoveryReport: RecoveryReport
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -53,6 +56,7 @@ class NevusApplication : Application() {
         stateRecovery = StateRecoveryAnalyzer(this)
             .register("downloads", String.serializer())
         val report = stateRecovery.analyzeOnStartup()
+        lastRecoveryReport = report
         NevusLog.i(TAG, "State recovery: ${report.summary()}")
         if (report.hadCrash) {
             NevusLog.w(TAG, "Detected previous unclean shutdown; in-flight=${report.inFlight.size}")

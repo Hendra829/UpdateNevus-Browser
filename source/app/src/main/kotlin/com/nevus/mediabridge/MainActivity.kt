@@ -31,6 +31,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.nevus.mediabridge.download.FloatingBubbleService
 import com.nevus.mediabridge.download.MediaUrlDetector
+import com.nevus.mediabridge.ui.DownloadManagerActivity
+import com.nevus.mediabridge.ui.SettingsActivity
 import com.nevus.mediabridge.util.NevusLog
 import com.nevus.mediabridge.util.PerformanceTuner
 
@@ -59,6 +61,8 @@ class MainActivity : AppCompatActivity() {
     private var reloadBtn: MaterialButton? = null
     private var backBtn: MaterialButton? = null
     private var forwardBtn: MaterialButton? = null
+    private var historyBtn: MaterialButton? = null
+    private var settingsBtn: MaterialButton? = null
 
     private val urlDetector = MediaUrlDetector()
 
@@ -79,6 +83,8 @@ class MainActivity : AppCompatActivity() {
         reloadBtn = findViewById(R.id.reloadBtn)
         backBtn = findViewById(R.id.backBtn)
         forwardBtn = findViewById(R.id.forwardBtn)
+        historyBtn = findViewById(R.id.historyBtn)
+        settingsBtn = findViewById(R.id.settingsBtn)
 
         setupWebView()
         wireUrlField()
@@ -202,6 +208,8 @@ class MainActivity : AppCompatActivity() {
         backBtn?.setOnClickListener { if (webView.canGoBack()) webView.goBack() }
         forwardBtn?.setOnClickListener { if (webView.canGoForward()) webView.goForward() }
         reloadBtn?.setOnClickListener { webView.reload() }
+        historyBtn?.setOnClickListener { startActivity(Intent(this, DownloadManagerActivity::class.java)) }
+        settingsBtn?.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         updateNavButtons()
     }
 
@@ -268,6 +276,9 @@ class MainActivity : AppCompatActivity() {
         }
         FloatingBubbleService.start(this)
         Toast.makeText(this, R.string.bubble_notification_title, Toast.LENGTH_SHORT).show()
+        // Open the manager right away so tapping this button visibly does something — not just a
+        // toast and a background service the user has no way to see the result of.
+        startActivity(Intent(this, DownloadManagerActivity::class.java))
     }
 
     private fun refreshBubbleToggleLabel() {

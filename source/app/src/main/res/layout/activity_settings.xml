@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_app_gradient"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:id="@+id/settingsToolbar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@color/nevus_surface"
+        android:elevation="3dp"
+        android:paddingHorizontal="4dp"
+        android:paddingVertical="6dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/settingsBackBtn"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/action_back"
+            app:icon="@drawable/ic_arrow_back"
+            app:iconTint="@color/nevus_ink"
+            app:iconSize="20dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:text="@string/settings_title"
+            android:textColor="@color/nevus_ink"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/settingsTabs"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:tabMode="scrollable"
+        app:layout_constraintTop_toBottomOf="@id/settingsToolbar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_tab_general" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_tab_fast_connection" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_tab_csprng" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_tab_recovery" />
+    </com.google.android.material.tabs.TabLayout>
+
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@id/settingsTabs"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp">
+
+            <!-- ─────────── Umum ─────────── -->
+            <LinearLayout
+                android:id="@+id/sectionGeneral"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchEnhanceDefault"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_general_enhance_default" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:text="@string/settings_general_enhance_default_desc"
+                    android:textColor="@color/nevus_ink"
+                    android:alpha="0.7"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/settings_general_target_height"
+                    android:textColor="@color/nevus_ink"
+                    android:textStyle="bold" />
+
+                <RadioGroup
+                    android:id="@+id/targetHeightGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <RadioButton
+                        android:id="@+id/heightAuto"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/height_auto" />
+                    <RadioButton
+                        android:id="@+id/height720"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/height_720p" />
+                    <RadioButton
+                        android:id="@+id/height1080"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/height_1080p" />
+                    <RadioButton
+                        android:id="@+id/height1440"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/height_1440p" />
+                </RadioGroup>
+            </LinearLayout>
+
+            <!-- ─────────── Koneksi Cepat ─────────── -->
+            <LinearLayout
+                android:id="@+id/sectionFastConnection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchFastConnection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_fast_connection_toggle" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_fast_connection_desc"
+                    android:textColor="@color/nevus_ink"
+                    android:alpha="0.7"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- ─────────── Audit CSPRNG ─────────── -->
+            <LinearLayout
+                android:id="@+id/sectionCsprng"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/csprngBytesServed"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:id="@+id/csprngReseedGeneration"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:id="@+id/csprngAlgorithm"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:id="@+id/csprngEvaluations"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:id="@+id/csprngAlarms"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:id="@+id/csprngLastReport"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink"
+                    android:layout_marginBottom="16dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/csprngReseedNowBtn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_csprng_reseed_now" />
+            </LinearLayout>
+
+            <!-- ─────────── Riwayat & Recovery ─────────── -->
+            <LinearLayout
+                android:id="@+id/sectionRecovery"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/recoverySummary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:id="@+id/recoveryInFlight"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink" />
+            </LinearLayout>
+
+        </FrameLayout>
+    </ScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

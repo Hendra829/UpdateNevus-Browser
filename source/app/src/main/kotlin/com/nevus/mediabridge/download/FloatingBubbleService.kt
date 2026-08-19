@@ -13,15 +13,22 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.nevus.mediabridge.MainActivity
 import com.nevus.mediabridge.R
+import com.nevus.mediabridge.media.EnhanceEvent
+import com.nevus.mediabridge.media.MediaEnhancer
 import com.nevus.mediabridge.util.NevusLog
+import com.nevus.mediabridge.util.NevusSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -49,12 +56,21 @@ class FloatingBubbleService : Service() {
     private var engine: DownloadEngine? = null
     private var eventJob: Job? = null
     private var pendingJob: Job? = null
+    private var plannedJob: Job? = null
+
+    private val history: DownloadHistoryStore by lazy {
+        DownloadHistoryStore(File(applicationContext.filesDir, "state"))
+    }
+
+    /** In-flight requests, so a terminal event can be logged with its original url/kind/fileName. */
+    private val inFlightRequests = ConcurrentHashMap<String, DownloadRequest>()
 
     override fun onCreate() {
         super.onCreate()
         NevusLog.i(TAG, "Service creating.")
     }
 
+    @androidx.media3.common.util.UnstableApi
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // startForeground MUST happen before the 5-second grace period; call it unconditionally.
         startForeground(NOTIF_ID, buildNotification())
@@ -65,11 +81,20 @@ class FloatingBubbleService : Service() {
             return START_NOT_STICKY
         }
 
-        engine = engine ?: DownloadEngine(applicationContext, serviceScope)
+        engine = engine ?: run {
+            val fast = NevusSettings(applicationContext).fastConnectionMode
+            DownloadEngine(
+                context = applicationContext,
+                scope = serviceScope,
+                chunkBytes = if (fast) FAST_CHUNK_BYTES else DEFAULT_CHUNK_BYTES,
+                connectTimeoutMs = if (fast) FAST_CONNECT_TIMEOUT_MS else DEFAULT_CONNECT_TIMEOUT_MS,
+            )
+        }
         bubble = bubble ?: BubbleController(this, ::onBubbleTap).also { it.attach() }
         refreshBubble()
         subscribeToDownloadEvents()
         subscribeToPendingDetections()
+        subscribeToPlannedDownloads()
         return START_STICKY
     }
 
@@ -81,6 +106,7 @@ class FloatingBubbleService : Service() {
         bubble = null
         eventJob?.cancel()
         pendingJob?.cancel()
+        plannedJob?.cancel()
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -103,6 +129,7 @@ class FloatingBubbleService : Service() {
             referer = next.referer,
             userAgent = DEFAULT_UA,
         )
+        inFlightRequests[txId] = request
         engine?.enqueue(request)
         Toast.makeText(this, getString(R.string.download_started, next.kind.name.lowercase()), Toast.LENGTH_SHORT).show()
     }
@@ -118,6 +145,9 @@ class FloatingBubbleService : Service() {
         eventJob = serviceScope.launch {
             eng.events.collect { evt ->
                 when (evt) {
+                    is DownloadEvent.Started, is DownloadEvent.Progress -> {
+                        activeDownloads.value = activeDownloads.value + (evt.txId to evt)
+                    }
                     is DownloadEvent.Completed -> {
                         NevusLog.i(TAG, "Downloaded ${evt.outputPath} bytes=${evt.bytesWritten} sha256=${evt.sha256Hex.take(12)}…")
                         Toast.makeText(
@@ -125,15 +155,19 @@ class FloatingBubbleService : Service() {
                             getString(R.string.download_done, File(evt.outputPath).name),
                             Toast.LENGTH_SHORT,
                         ).show()
+                        activeDownloads.value = activeDownloads.value - evt.txId
+                        logHistory(evt.txId, DownloadHistoryEntry.Status.COMPLETED, evt.outputPath, evt.bytesWritten, evt.sha256Hex, null)
                     }
                     is DownloadEvent.Failed -> {
                         NevusLog.w(TAG, "Download failed ${evt.txId}: ${evt.message}", evt.cause)
                         Toast.makeText(this@FloatingBubbleService, getString(R.string.download_failed, evt.message), Toast.LENGTH_LONG).show()
+                        activeDownloads.value = activeDownloads.value - evt.txId
+                        logHistory(evt.txId, DownloadHistoryEntry.Status.FAILED, null, 0L, null, evt.message)
                     }
                     is DownloadEvent.Cancelled -> {
                         NevusLog.i(TAG, "Download cancelled ${evt.txId}")
+                        activeDownloads.value = activeDownloads.value - evt.txId
                     }
-                    else -> Unit
                 }
             }
         }
@@ -146,7 +180,106 @@ class FloatingBubbleService : Service() {
         }
     }
 
+    @androidx.media3.common.util.UnstableApi
+    private fun subscribeToPlannedDownloads() {
+        plannedJob?.cancel()
+        plannedJob = serviceScope.launch {
+            plannedDownloads.collect { plan -> launch { handlePlan(plan) } }
+        }
+    }
+
+    /**
+     * Runs a fully-configured download from [com.nevus.mediabridge.ui.DownloadOptionsDialog]:
+     * resolves a real HLS/DASH variant if one was chosen, downloads it (or the plain URL), and —
+     * if requested — waits for that to finish and runs [MediaEnhancer] on the result.
+     */
+    @androidx.media3.common.util.UnstableApi
+    private suspend fun handlePlan(plan: DownloadPlan) {
+        val eng = engine ?: return
+        val txId = "dl-${nextId.incrementAndGet()}"
+        val kind = if (plan.audioOnly) MediaKind.AUDIO else plan.detection.kind
+        val request = DownloadRequest(
+            txId = txId,
+            url = plan.detection.url,
+            kind = kind,
+            referer = plan.detection.referer,
+            userAgent = DEFAULT_UA,
+        )
+        inFlightRequests[txId] = request
+
+        if (plan.chosenVariant != null) {
+            val resolved = PlaylistParser.resolve(plan.detection.url, plan.manifestKind, plan.chosenVariant)
+            if (resolved == null) {
+                inFlightRequests.remove(txId)
+                Toast.makeText(
+                    this,
+                    getString(R.string.download_failed, plan.chosenVariant.label),
+                    Toast.LENGTH_LONG,
+                ).show()
+                return
+            }
+            eng.enqueueVariant(request, resolved)
+        } else {
+            eng.enqueue(request)
+        }
+
+        if (!plan.enhance) return
+
+        val terminal = eng.events.first { it.txId == txId && (it is DownloadEvent.Completed || it is DownloadEvent.Failed || it is DownloadEvent.Cancelled) }
+        val completed = terminal as? DownloadEvent.Completed ?: return
+        runEnhancement(completed.outputPath, plan)
+    }
+
+    @androidx.media3.common.util.UnstableApi
+    private suspend fun runEnhancement(inputPath: String, plan: DownloadPlan) {
+        val input = File(inputPath)
+        val ext = if (plan.audioOnly) "m4a" else "mp4"
+        val outputPath = File(input.parentFile, "${input.nameWithoutExtension}-enhanced.$ext").absolutePath
+        MediaEnhancer(applicationContext)
+            .enhance(inputPath = inputPath, outputPath = outputPath, audioOnly = plan.audioOnly, targetHeightPx = plan.targetHeightPx)
+            .collect { evt ->
+                when (evt) {
+                    is EnhanceEvent.Completed -> {
+                        NevusLog.i(TAG, "Enhanced file ready: ${evt.outputPath}")
+                        Toast.makeText(this, getString(R.string.download_done, File(evt.outputPath).name), Toast.LENGTH_SHORT).show()
+                    }
+                    is EnhanceEvent.Failed -> {
+                        NevusLog.w(TAG, "Enhancement failed for $inputPath: ${evt.message}", evt.cause)
+                        Toast.makeText(this, getString(R.string.download_failed, evt.message), Toast.LENGTH_LONG).show()
+                    }
+                    EnhanceEvent.Started -> Unit
+                }
+            }
+    }
+
     // ─────────── helpers ───────────
+
+    private fun logHistory(
+        txId: String,
+        status: DownloadHistoryEntry.Status,
+        outputPath: String?,
+        bytesWritten: Long,
+        sha256Hex: String?,
+        failureMessage: String?,
+    ) {
+        val request = inFlightRequests.remove(txId) ?: return
+        runCatching {
+            history.append(
+                DownloadHistoryEntry(
+                    txId = txId,
+                    url = request.url,
+                    kind = request.kind,
+                    fileName = outputPath?.let { File(it).name } ?: request.suggestedFileName(),
+                    outputPath = outputPath,
+                    bytesWritten = bytesWritten,
+                    sha256Hex = sha256Hex,
+                    status = status,
+                    timestampMs = System.currentTimeMillis(),
+                    failureMessage = failureMessage,
+                )
+            )
+        }.onFailure { NevusLog.w(TAG, "Failed to append history entry for $txId", it) }
+    }
 
     private fun canDrawOverlays(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
@@ -178,6 +311,11 @@ class FloatingBubbleService : Service() {
         private const val TAG = "BubbleService"
         private const val DEFAULT_UA = "NevusBrowser/3.0 (Android; media-bridge)"
 
+        private const val DEFAULT_CHUNK_BYTES = 64 * 1024
+        private const val FAST_CHUNK_BYTES = 256 * 1024
+        private const val DEFAULT_CONNECT_TIMEOUT_MS = 15_000
+        private const val FAST_CONNECT_TIMEOUT_MS = 8_000
+
         /** Cap on retained pending detections — silently drops old entries past this. */
         private const val MAX_PENDING = 64
 
@@ -187,6 +325,22 @@ class FloatingBubbleService : Service() {
         private val nextId = AtomicLong(0L)
 
         val pendingDetections: MutableStateFlow<List<Detection>> = MutableStateFlow(emptyList())
+
+        /** txId -> latest Started/Progress event, for [com.nevus.mediabridge.ui.DownloadManagerActivity]. */
+        val activeDownloads: MutableStateFlow<Map<String, DownloadEvent>> = MutableStateFlow(emptyMap())
+
+        /** One-shot download commands from [com.nevus.mediabridge.ui.DownloadOptionsDialog]. */
+        private val plannedDownloads = MutableSharedFlow<DownloadPlan>(
+            extraBufferCapacity = 16,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+
+        /** Start the service (if needed) and hand it a fully-configured download to run. */
+        fun submitPlan(context: Context, plan: DownloadPlan) {
+            plannedDownloads.tryEmit(plan)
+            runCatching { startInternal(context) }
+                .onFailure { NevusLog.w(TAG, "submitPlan: startForegroundService failed", it) }
+        }
 
         /**
          * Push a newly-detected media URL into the bubble. Deduplicates by URL to prevent the

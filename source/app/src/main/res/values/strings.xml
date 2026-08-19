@@ -28,4 +28,54 @@
     <string name="no_handler_for_scheme">Tidak ada aplikasi untuk membuka tautan ini.</string>
 
     <string name="default_start_url">https://start.duckduckgo.com/</string>
+
+    <string name="action_settings">Pengaturan</string>
+    <string name="action_history">Riwayat unduhan</string>
+
+    <string name="settings_title">Pengaturan Nevus</string>
+    <string name="settings_tab_general">Umum</string>
+    <string name="settings_tab_fast_connection">Koneksi Cepat</string>
+    <string name="settings_tab_csprng">Audit CSPRNG</string>
+    <string name="settings_tab_recovery">Riwayat &amp; Recovery</string>
+
+    <string name="settings_general_enhance_default">Tingkatkan kualitas otomatis</string>
+    <string name="settings_general_enhance_default_desc">Centang otomatis opsi \"Tingkatkan kualitas\" saat memulai unduhan baru.</string>
+    <string name="settings_general_target_height">Resolusi target default</string>
+    <string name="height_auto">Otomatis (ikuti sumber)</string>
+    <string name="height_720p">720p</string>
+    <string name="height_1080p">1080p</string>
+    <string name="height_1440p">1440p (2K)</string>
+
+    <string name="settings_fast_connection_toggle">Aktifkan mode koneksi cepat</string>
+    <string name="settings_fast_connection_desc">Menaikkan ukuran chunk unduhan dan memperpendek timeout koneksi — lebih cepat di jaringan stabil, tapi lebih sensitif terhadap koneksi yang tidak stabil.</string>
+
+    <string name="settings_csprng_bytes_served">Bytes dihasilkan: %1$d</string>
+    <string name="settings_csprng_reseed_generation">Generasi reseed: %1$d</string>
+    <string name="settings_csprng_algorithm">Algoritma: %1$s</string>
+    <string name="settings_csprng_evaluations">Evaluasi statistik: %1$d</string>
+    <string name="settings_csprng_alarms">Alarm terdeteksi: %1$d</string>
+    <string name="settings_csprng_last_report">Tes terakhir (p-value) — monobit: %1$.4f, runs: %2$.4f, chi-square: %3$.4f</string>
+    <string name="settings_csprng_no_report">Belum ada evaluasi statistik.</string>
+    <string name="settings_csprng_reseed_now">Reseed sekarang</string>
+    <string name="settings_csprng_reseed_done">CSPRNG di-reseed manual</string>
+
+    <string name="settings_recovery_summary">Startup terakhir: %1$s</string>
+    <string name="settings_recovery_in_flight">Transaksi in-flight: %1$d</string>
+
+    <string name="download_manager_title">Unduhan</string>
+    <string name="download_manager_section_active">Sedang berjalan</string>
+    <string name="download_manager_section_history">Riwayat</string>
+    <string name="download_manager_empty_active">Belum ada media terdeteksi di halaman aktif.</string>
+    <string name="download_manager_empty_history">Belum ada riwayat unduhan.</string>
+
+    <string name="download_options_title">Opsi unduhan</string>
+    <string name="download_options_format">Format</string>
+    <string name="download_options_format_video">Video</string>
+    <string name="download_options_format_audio_only">Audio saja (m4a)</string>
+    <string name="download_options_source_quality">Kualitas sumber</string>
+    <string name="download_options_source_quality_default">Kualitas sumber (default)</string>
+    <string name="download_options_target_resolution">Resolusi target</string>
+    <string name="download_options_enhance">Tingkatkan kualitas (kontras/ketajaman video, bass/treble audio)</string>
+    <string name="download_options_start">Mulai unduh</string>
+    <string name="download_options_cancel">Batal</string>
 </resources>

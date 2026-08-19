@@ -84,4 +84,9 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.webkit)
+    implementation(libs.recyclerview)
+    implementation(libs.media3.transformer)
+    implementation(libs.media3.effect)
+    implementation(libs.media3.common)
+    implementation(libs.media3.exoplayer)
 }

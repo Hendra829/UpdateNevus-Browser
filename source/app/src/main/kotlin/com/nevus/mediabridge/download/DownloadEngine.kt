@@ -88,6 +88,19 @@ class DownloadEngine(
     /** Number of currently active downloads. */
     fun activeCount(): Int = jobs.count { it.value.isActive }
 
+    /**
+     * Enqueue a resolved HLS/DASH rendition (from [PlaylistParser]) — fetches every segment in
+     * order and concatenates them into one output file. No mid-transfer resume across segments
+     * (unlike [enqueue]): a retry restarts from the first segment.
+     */
+    fun enqueueVariant(request: DownloadRequest, resolved: ResolvedVariant): Job {
+        jobs[request.txId]?.let { existing -> if (existing.isActive) return existing }
+        val job = scope.launch(Dispatchers.IO) { runVariant(request, resolved) }
+        jobs[request.txId] = job
+        job.invokeOnCompletion { jobs.remove(request.txId, job) }
+        return job
+    }
+
     private suspend fun run(request: DownloadRequest) {
         val parsed = runCatching { URL(request.url) }.getOrNull()
         if (parsed == null || parsed.protocol.lowercase() != "https") {
@@ -191,6 +204,86 @@ class DownloadEngine(
         }
     }
 
+    private suspend fun runVariant(request: DownloadRequest, resolved: ResolvedVariant) {
+        if (resolved.segmentUrls.isEmpty()) {
+            emit(DownloadEvent.Failed(request.txId, "no segments to download"))
+            return
+        }
+        val ext = if (resolved.container == SegmentContainer.MPEG_TS) "ts" else "mp4"
+        val target: File = try {
+            resolveTargetFile(request, forcedExtension = ext)
+        } catch (t: Throwable) {
+            emit(DownloadEvent.Failed(request.txId, "cannot resolve target: ${t.message}", t))
+            return
+        }
+        val partFile = File(target.parentFile, "${target.name}$PART_SUFFIX")
+        if (partFile.exists()) partFile.delete()
+
+        emit(DownloadEvent.Started(request.txId, expectedBytes = null))
+        val digest = MessageDigest.getInstance("SHA-256")
+        var read = 0L
+        var lastEmitMs = 0L
+
+        try {
+            FileOutputStream(partFile, /* append = */ false).use { fout ->
+                BufferedOutputStream(fout, chunkBytes).use { bout ->
+                    for (segmentUrl in resolved.segmentUrls) {
+                        coroutineContext.ensureActive()
+                        val parsedSegment = URL(segmentUrl)
+                        require(parsedSegment.protocol.equals("https", ignoreCase = true)) {
+                            "rejecting non-HTTPS segment: $segmentUrl"
+                        }
+                        val conn = openConnection(parsedSegment, request)
+                        try {
+                            val status = conn.responseCode
+                            if (status !in 200..299) {
+                                throw IllegalStateException("segment HTTP $status: $segmentUrl")
+                            }
+                            BufferedInputStream(conn.inputStream, chunkBytes).use { input ->
+                                val buf = ByteArray(chunkBytes)
+                                while (true) {
+                                    coroutineContext.ensureActive()
+                                    val n = input.read(buf)
+                                    if (n < 0) break
+                                    bout.write(buf, 0, n)
+                                    digest.update(buf, 0, n)
+                                    read += n
+                                    if (read > maxBytes) {
+                                        throw IllegalStateException("body exceeded cap $maxBytes while reading")
+                                    }
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastEmitMs >= 100) {
+                                        emit(DownloadEvent.Progress(request.txId, read, null))
+                                        lastEmitMs = now
+                                    }
+                                    yield()
+                                }
+                            }
+                        } finally {
+                            runCatching { conn.disconnect() }
+                        }
+                    }
+                    bout.flush()
+                }
+                fout.fd.sync()
+            }
+
+            if (!partFile.renameTo(target)) {
+                throw IllegalStateException("cannot finalize ${partFile.name} -> ${target.name}")
+            }
+            val sha = digest.digest().toHex()
+            triggerMediaScan(target, request.kind, request.fileName ?: target.name)
+            emit(DownloadEvent.Completed(request.txId, target.absolutePath, sha, read))
+        } catch (ce: CancellationException) {
+            runCatching { partFile.delete() }
+            emit(DownloadEvent.Cancelled(request.txId))
+            throw ce
+        } catch (t: Throwable) {
+            runCatching { partFile.delete() }
+            emit(DownloadEvent.Failed(request.txId, t.message ?: t.javaClass.simpleName, t))
+        }
+    }
+
     /** Feed bytes already on disk from a prior attempt into [digest] so the final hash covers the whole file. */
     private fun rehashExisting(partFile: File, digest: MessageDigest) {
         BufferedInputStream(FileInputStream(partFile), chunkBytes).use { existing ->
@@ -215,13 +308,17 @@ class DownloadEngine(
         return startOffset + len
     }
 
-    private fun resolveTargetFile(request: DownloadRequest): File {
+    private fun resolveTargetFile(request: DownloadRequest, forcedExtension: String? = null): File {
         val dir = context.getExternalFilesDir(request.kind.standardDir)
             ?: File(context.filesDir, "downloads/${request.kind.subDir}")
         if (!dir.exists() && !dir.mkdirs()) {
             throw IllegalStateException("cannot create ${dir.absolutePath}")
         }
-        val name = uniquify(dir, request.suggestedFileName())
+        val suggested = request.suggestedFileName()
+        val withExtension = if (forcedExtension == null) suggested else {
+            "${suggested.substringBeforeLast('.', suggested)}.$forcedExtension"
+        }
+        val name = uniquify(dir, withExtension)
         val candidate = File(dir, name)
         // Sanity check: the resolved path must sit inside the intended parent — guards against
         // any name that survives sanitization and tries to escape via canonicalisation quirks.

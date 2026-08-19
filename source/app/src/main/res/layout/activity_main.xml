@@ -69,6 +69,26 @@
             app:icon="@drawable/ic_refresh"
             app:iconTint="@color/nevus_ink"
             app:iconSize="20dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/historyBtn"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/action_history"
+            app:icon="@drawable/ic_history"
+            app:iconTint="@color/nevus_ink"
+            app:iconSize="20dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/settingsBtn"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/action_settings"
+            app:icon="@drawable/ic_settings"
+            app:iconTint="@color/nevus_ink"
+            app:iconSize="20dp" />
     </LinearLayout>
 
     <ProgressBar
