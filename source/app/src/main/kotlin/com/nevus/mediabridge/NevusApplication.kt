@@ -57,8 +57,13 @@ class NevusApplication : Application() {
         if (report.hadCrash) {
             NevusLog.w(TAG, "Detected previous unclean shutdown; in-flight=${report.inFlight.size}")
         }
+        // Trim the journal to what analyzeOnStartup() just resolved, per RecoverableStore's own
+        // documented contract — otherwise downloads.jsonl grows without bound across launches.
+        runCatching { stateRecovery.store<String>("downloads").checkpoint(report.highestIndex) }
+            .onFailure { NevusLog.w(TAG, "Post-startup checkpoint failed", it) }
 
         registerBubbleNotificationChannel()
+        csprngHealthMonitor.schedulePeriodicReseed(PERIODIC_RESEED_MS)
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
@@ -90,5 +95,8 @@ class NevusApplication : Application() {
 
     private companion object {
         const val TAG = "Application"
+
+        /** How often to self-reseed the CSPRNG independent of any statistical alarm. 30 min. */
+        const val PERIODIC_RESEED_MS = 30L * 60 * 1000
     }
 }

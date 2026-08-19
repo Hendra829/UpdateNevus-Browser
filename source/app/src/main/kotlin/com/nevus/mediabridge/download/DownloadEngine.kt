@@ -17,6 +17,7 @@ import kotlinx.coroutines.yield
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -39,7 +40,12 @@ import kotlin.coroutines.coroutineContext
  *  - **Bounded size** — the engine refuses a body larger than [maxBytes] (default 4 GiB) to
  *    avoid a hostile server filling the device disk.
  *  - **Cooperative cancellation** — every chunk boundary is a `ensureActive() + yield()` pair;
- *    a partially-written file is deleted on cancel/failure.
+ *    a partially-written file is deleted on cancel/failure — *unless* it was cancelled by the
+ *    engine itself for a resumable retry, in which case the partial bytes are kept.
+ *  - **Resumable** — a retry for the same target file reuses a `.part` sidecar and sends
+ *    `Range: bytes=<n>-`; a `206` response continues the SHA-256 over the existing prefix bytes,
+ *    a `200` response (server ignored Range) restarts clean. The `.part` is renamed to the final
+ *    name only once the body is fully received and verified against the declared length.
  *  - **Events on a SharedFlow** — one flow for the whole engine, subscribers filter by
  *    [DownloadEvent.txId].
  */
@@ -95,9 +101,14 @@ class DownloadEngine(
             emit(DownloadEvent.Failed(request.txId, "cannot resolve target: ${t.message}", t))
             return
         }
+        // A leftover .part from a previous failed/cancelled attempt at the same target name is
+        // the resume point. resolveTargetFile only checks the *final* name, so a stale .part
+        // does not perturb the uniquify() result — the sidecar naturally lines up on retry.
+        val partFile = File(target.parentFile, "${target.name}$PART_SUFFIX")
+        val resumeFrom = if (partFile.exists()) partFile.length() else 0L
 
         val conn: HttpURLConnection = try {
-            openConnection(parsed, request)
+            openConnection(parsed, request, rangeStart = resumeFrom.takeIf { it > 0 })
         } catch (t: Throwable) {
             emit(DownloadEvent.Failed(request.txId, "connection failed: ${t.message}", t))
             return
@@ -109,56 +120,99 @@ class DownloadEngine(
                 emit(DownloadEvent.Failed(request.txId, "HTTP $status ${conn.responseMessage.orEmpty()}"))
                 return
             }
-            val declared = conn.contentLengthLong.takeIf { it > 0L }
-            if (declared != null && declared > maxBytes) {
-                emit(DownloadEvent.Failed(request.txId, "declared size ${declared} exceeds cap ${maxBytes}"))
+
+            // 206 confirms the server honoured our Range header; anything else (typically 200)
+            // means it sent the whole body from byte zero, so we must restart clean.
+            val resuming = resumeFrom > 0 && status == HttpURLConnection.HTTP_PARTIAL
+            val startOffset = if (resuming) resumeFrom else 0L
+            if (!resuming && partFile.exists()) partFile.delete()
+
+            val declaredTotal = declaredTotalBytes(conn, startOffset)
+            if (declaredTotal != null && declaredTotal > maxBytes) {
+                emit(DownloadEvent.Failed(request.txId, "declared size ${declaredTotal} exceeds cap ${maxBytes}"))
                 return
             }
-            emit(DownloadEvent.Started(request.txId, declared))
+            emit(DownloadEvent.Started(request.txId, declaredTotal))
 
             val digest = MessageDigest.getInstance("SHA-256")
-            var read = 0L
+            if (resuming) rehashExisting(partFile, digest)
+
+            var read = startOffset
             var lastEmitMs = 0L
 
             BufferedInputStream(conn.inputStream, chunkBytes).use { input ->
-                BufferedOutputStream(FileOutputStream(target), chunkBytes).use { bout ->
-                    val buf = ByteArray(chunkBytes)
-                    while (true) {
-                        coroutineContext.ensureActive()
-                        val n = input.read(buf)
-                        if (n < 0) break
-                        bout.write(buf, 0, n)
-                        digest.update(buf, 0, n)
-                        read += n
-                        if (read > maxBytes) {
-                            throw IllegalStateException("body exceeded cap ${maxBytes} while reading")
+                FileOutputStream(partFile, /* append = */ resuming).use { fout ->
+                    BufferedOutputStream(fout, chunkBytes).use { bout ->
+                        val buf = ByteArray(chunkBytes)
+                        while (true) {
+                            coroutineContext.ensureActive()
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            bout.write(buf, 0, n)
+                            digest.update(buf, 0, n)
+                            read += n
+                            if (read > maxBytes) {
+                                bout.flush()
+                                // Not resumable — a source that lies about its size is not one we
+                                // want to keep partial bytes around for.
+                                runCatching { partFile.delete() }
+                                emit(DownloadEvent.Failed(request.txId, "body exceeded cap ${maxBytes} while reading"))
+                                return
+                            }
+                            val now = System.currentTimeMillis()
+                            if (now - lastEmitMs >= 100 || (declaredTotal != null && read == declaredTotal)) {
+                                emit(DownloadEvent.Progress(request.txId, read, declaredTotal))
+                                lastEmitMs = now
+                            }
+                            yield()
                         }
-                        val now = System.currentTimeMillis()
-                        if (now - lastEmitMs >= 100 || (declared != null && read == declared)) {
-                            emit(DownloadEvent.Progress(request.txId, read, declared))
-                            lastEmitMs = now
-                        }
-                        yield()
+                        bout.flush()
                     }
-                    bout.flush()
+                    fout.fd.sync()
                 }
-                // fsync the underlying file descriptor (via a fresh open — BufferedOutputStream owns the FD).
-                runCatching { FileOutputStream(target, /* append = */ true).use { it.fd.sync() } }
             }
 
+            if (!partFile.renameTo(target)) {
+                throw IllegalStateException("cannot finalize ${partFile.name} -> ${target.name}")
+            }
             val sha = digest.digest().toHex()
             triggerMediaScan(target, request.kind, request.fileName ?: target.name)
             emit(DownloadEvent.Completed(request.txId, target.absolutePath, sha, read))
         } catch (ce: CancellationException) {
-            runCatching { if (target.exists()) target.delete() }
+            // Keep the .part on cancel — a later enqueue() for the same target resumes from here.
             emit(DownloadEvent.Cancelled(request.txId))
             throw ce
         } catch (t: Throwable) {
-            runCatching { if (target.exists()) target.delete() }
+            // Likewise keep it on a transient failure (network drop, timeout, ...); it is only
+            // ever deleted above for the non-retryable oversize case.
             emit(DownloadEvent.Failed(request.txId, t.message ?: t.javaClass.simpleName, t))
         } finally {
             runCatching { conn.disconnect() }
         }
+    }
+
+    /** Feed bytes already on disk from a prior attempt into [digest] so the final hash covers the whole file. */
+    private fun rehashExisting(partFile: File, digest: MessageDigest) {
+        BufferedInputStream(FileInputStream(partFile), chunkBytes).use { existing ->
+            val buf = ByteArray(chunkBytes)
+            while (true) {
+                val n = existing.read(buf)
+                if (n < 0) break
+                digest.update(buf, 0, n)
+            }
+        }
+    }
+
+    /** Total body size if derivable — from `Content-Range: bytes s-e/total`, else `Content-Length` (+ offset). */
+    private fun declaredTotalBytes(conn: HttpURLConnection, startOffset: Long): Long? {
+        conn.getHeaderField("Content-Range")
+            ?.substringAfter('/', missingDelimiterValue = "")
+            ?.trim()
+            ?.toLongOrNull()
+            ?.takeIf { it > 0 }
+            ?.let { return it }
+        val len = conn.contentLengthLong.takeIf { it > 0L } ?: return null
+        return startOffset + len
     }
 
     private fun resolveTargetFile(request: DownloadRequest): File {
@@ -189,7 +243,7 @@ class DownloadEngine(
         return "$base-$i$ext"
     }
 
-    private fun openConnection(parsed: URL, request: DownloadRequest): HttpURLConnection {
+    private fun openConnection(parsed: URL, request: DownloadRequest, rangeStart: Long? = null): HttpURLConnection {
         val conn = parsed.openConnection() as HttpsURLConnection
         conn.connectTimeout = connectTimeoutMs
         conn.readTimeout = readTimeoutMs
@@ -203,6 +257,9 @@ class DownloadEngine(
         conn.setRequestProperty("User-Agent", request.userAgent ?: DEFAULT_UA)
         conn.setRequestProperty("Accept", "*/*")
         conn.setRequestProperty("Accept-Encoding", "identity")  // we stream the raw body; skip gzip
+        if (rangeStart != null && rangeStart > 0) {
+            conn.setRequestProperty("Range", "bytes=$rangeStart-")
+        }
         conn.doInput = true
         conn.requestMethod = "GET"
         return conn
@@ -229,6 +286,7 @@ class DownloadEngine(
     private companion object {
         const val TAG = "DownloadEngine"
         const val DEFAULT_UA = "NevusBrowser/3.0 (Android; media-bridge)"
+        const val PART_SUFFIX = ".part"
         val HEX = "0123456789abcdef".toCharArray()
     }
 }

@@ -4,6 +4,11 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Soft halo ring behind the glyph for depth against the gradient background. -->
+    <path
+        android:fillColor="#26FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,54 m-38,0 a38,38 0 1,0 76,0 a38,38 0 1,0 -76,0 M54,54 m-32,0 a32,32 0 1,1 64,0 a32,32 0 1,1 -64,0" />
     <!-- Downward arrow inside a rounded circle — mirrors the bubble glyph. -->
     <path
         android:fillColor="#FFFFFF"

@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
-    <solid android:color="@color/nevus_bubble_fill" />
+    <gradient
+        android:type="linear"
+        android:angle="135"
+        android:startColor="@color/nevus_accent_start"
+        android:centerColor="@color/nevus_bubble_fill"
+        android:endColor="@color/nevus_accent_end" />
     <stroke android:color="@color/nevus_bubble_stroke" android:width="2dp" />
 </shape>

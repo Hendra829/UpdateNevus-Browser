@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -40,6 +43,12 @@ class BubbleController(
 
     private val windowManager: WindowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+    private val vibrator: Vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+    } else {
+        @Suppress("DEPRECATION") context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    }
 
     private val root: View = LayoutInflater.from(context).inflate(R.layout.view_floating_bubble, null, false)
     private val badgeView: TextView = root.findViewById(R.id.bubbleBadge)
@@ -163,6 +172,18 @@ class BubbleController(
         val marginY = dip(24)
         params.y = min(max(marginY, params.y), screenHeight - bubbleHeight - marginY)
         safeUpdateLayout()
+        tick()
+    }
+
+    /** Short haptic tick on edge-snap — tactile confirmation the bubble docked. Best-effort. */
+    private fun tick() {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION") vibrator.vibrate(12)
+            }
+        }.onFailure { NevusLog.w(TAG, "Haptic tick failed", it) }
     }
 
     private fun safeUpdateLayout() {

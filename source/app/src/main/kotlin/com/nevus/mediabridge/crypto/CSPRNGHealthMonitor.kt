@@ -5,6 +5,8 @@ import com.nevus.mediabridge.util.NevusLog
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 import kotlin.math.min
 
 /**
@@ -32,6 +34,8 @@ class CSPRNGHealthMonitor(
     )
     val events: SharedFlow<Event> = _events
 
+    private val periodicReseedRunning = AtomicBoolean(false)
+
     init {
         validator.onAlarm { report ->
             NevusLog.w(TAG, "Statistical alarm: $report")
@@ -50,6 +54,34 @@ class CSPRNGHealthMonitor(
         if (take <= 0) return
         // Take a contiguous prefix (already random within a burst, so any deterministic slice is fine).
         validator.observe(burst, 0, take)
+    }
+
+    /**
+     * Reseed on a fixed cadence, independent of any statistical alarm — defence against a
+     * generator that has quietly drifted in a way the live tests don't yet flag. Idempotent;
+     * a second call is a no-op until [stopPeriodicReseed] is invoked.
+     */
+    fun schedulePeriodicReseed(intervalMs: Long) {
+        require(intervalMs > 0) { "intervalMs must be positive" }
+        if (!periodicReseedRunning.compareAndSet(false, true)) return
+        thread(isDaemon = true, name = "csprng-periodic-reseed") {
+            while (periodicReseedRunning.get()) {
+                try {
+                    Thread.sleep(intervalMs)
+                } catch (_: InterruptedException) {
+                    break
+                }
+                if (!periodicReseedRunning.get()) break
+                runCatching { CSPRNGProvider.reseedSelf() }
+                    .onSuccess { _events.tryEmit(Event.ReseedApplied(reason = "periodic")) }
+                    .onFailure { NevusLog.w(TAG, "Periodic reseed failed", it) }
+            }
+        }
+    }
+
+    /** Stop the periodic reseed loop started by [schedulePeriodicReseed], if running. */
+    fun stopPeriodicReseed() {
+        periodicReseedRunning.set(false)
     }
 
     /** Public status snapshot — useful for the settings/audit screen. */

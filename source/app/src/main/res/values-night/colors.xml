@@ -11,4 +11,10 @@
     <color name="nevus_kind_audio">#4FB392</color>
     <color name="nevus_kind_image">#E2B04E</color>
     <color name="nevus_kind_music">#C46EA5</color>
+
+    <!-- Gradient pairs — shared by the launcher icon, app background, and the bubble. -->
+    <color name="nevus_accent_start">#3A6690</color>
+    <color name="nevus_accent_end">#6FA3D6</color>
+    <color name="nevus_ground_gradient_start">#0F1114</color>
+    <color name="nevus_ground_gradient_end">#171A21</color>
 </resources>

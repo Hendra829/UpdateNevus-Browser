@@ -79,6 +79,7 @@ class MediaUrlDetector(
         )
         private val IMAGE_EXT = setOf(
             "jpg", "jpeg", "png", "gif", "webp", "svg", "avif", "heic", "heif", "bmp", "tiff", "tif",
+            "gifv", "apng",
         )
         private val NON_MEDIA_EXT = setOf(
             "html", "htm", "xhtml", "js", "mjs", "css", "json", "xml",
@@ -97,6 +98,9 @@ class MediaUrlDetector(
             "soundcloud.com",
             "music.apple.com",
             "www.deezer.com",
+            "tidal.com",
+            "listen.tidal.com",
+            "bandcamp.com",
         )
 
         /** Map a MIME type (e.g. from `WebView.setDownloadListener`) to a [MediaKind]. */

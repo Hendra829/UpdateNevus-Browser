@@ -77,8 +77,11 @@ lulus DAG sanity check (no cycles).
 
 1. Tambahkan `bridge/NevusMediaBridge.kt` — surface `@JavascriptInterface` untuk
    halaman web internal yang memanggil download secara programatik.
-2. Ganti `HttpURLConnection` dengan **OkHttp + Cronet** untuk resumable
-   download (Range requests) — sangat berguna untuk file besar.
+2. ~~Ganti `HttpURLConnection` dengan **OkHttp + Cronet** untuk resumable
+   download (Range requests)~~ — **sudah diimplementasikan** di atas
+   `HttpURLConnection` yang ada: `DownloadEngine` menulis ke sidecar `.part`
+   dan mengirim `Range: bytes=<n>-` saat `enqueue()` diulang untuk target
+   yang sama (lihat komentar di `DownloadEngine.run()`).
 3. Tambahkan **background scheduler** via `WorkManager` untuk retry download
    yang gagal karena hilang koneksi.
 4. Tambahkan **UI settings screen** yang membaca `CSPRNGHealthMonitor.snapshot()`

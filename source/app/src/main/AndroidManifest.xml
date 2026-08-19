@@ -18,6 +18,9 @@
     <!-- Floating download bubble (overlay) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Haptic tick when the bubble snaps to a screen edge -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <!-- Foreground service for the bubble + downloads (Android 14+ requires typed FGS) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
