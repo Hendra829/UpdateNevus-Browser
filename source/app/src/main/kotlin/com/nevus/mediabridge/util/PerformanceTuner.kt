@@ -4,17 +4,25 @@ import android.content.Context
 import android.os.Build
 import android.view.View
 import android.webkit.CookieManager
-import android.webkit.WebView
 import android.webkit.WebSettings
+import android.webkit.WebView
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 
 /**
- * Runtime tuning for a snappy browser experience — applied once per WebView instance.
+ * Runtime tuning for a snappy — and safe — browser experience. Applied once per WebView
+ * instance. The single largest win comes from *not blocking the main thread*; the rest is
+ * disabling legacy pessimizations and enabling modern rendering paths.
  *
- * The single largest win comes from *not blocking the main thread*; the rest is disabling
- * legacy pessimizations and enabling all the modern rendering paths.
+ * Security posture:
+ *  - `file://` and content:// access is disabled — no local-file exfiltration via a hostile page.
+ *  - Mixed content is `NEVER_ALLOW` — https only for subresources on an https page.
+ *  - Geolocation prompts are auto-denied by attaching a no-op chrome client; a caller who
+ *    wants prompts can install their own `WebChromeClient` on top.
+ *  - Third-party cookies are off by default.
+ *  - Autoplay is gated by user gesture — no auto-blast audio.
+ *  - Safe browsing is enabled where the WebView backend supports it.
  */
 object PerformanceTuner {
 
@@ -23,12 +31,8 @@ object PerformanceTuner {
         val s = webView.settings
         s.applySnappyDefaults()
 
-        // Hardware acceleration is on by default in modern SDKs, but be explicit — an OEM ROM
-        // may have flipped it to software for the launcher WebView instance.
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // A generation-old caveat: `setRenderPriority` is deprecated but respected by the
-        // legacy WebView backend; new Chromium ignores it silently, so it's safe.
         @Suppress("DEPRECATION")
         s.setRenderPriority(WebSettings.RenderPriority.HIGH)
 
@@ -39,8 +43,15 @@ object PerformanceTuner {
             WebSettingsCompat.setSafeBrowsingEnabled(s, true)
         }
 
-        CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
+        // Follow the app theme for pages that declare `prefers-color-scheme` — modern replacement
+        // for the legacy `FORCE_DARK` API removed in newer AndroidX WebKit versions.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+            runCatching { WebSettingsCompat.setAlgorithmicDarkeningAllowed(s, true) }
+        }
+
+        val cm = CookieManager.getInstance()
+        cm.setAcceptCookie(true)
+        cm.setAcceptThirdPartyCookies(webView, false)
     }
 
     fun currentEngineInfo(context: Context): String {
@@ -51,22 +62,20 @@ object PerformanceTuner {
     private fun WebSettings.applySnappyDefaults() {
         javaScriptEnabled = true
         domStorageEnabled = true
+        @Suppress("DEPRECATION")
         databaseEnabled = true
         loadsImagesAutomatically = true
         useWideViewPort = true
         loadWithOverviewMode = true
-        mediaPlaybackRequiresUserGesture = false  // let auto-play work for embedded video where allowed
-        setSupportMultipleWindows(true)
-        javaScriptCanOpenWindowsAutomatically = true
+        // Require a user gesture before autoplay: no unsolicited audio blast on page load.
+        mediaPlaybackRequiresUserGesture = true
+        setSupportMultipleWindows(false)
+        javaScriptCanOpenWindowsAutomatically = false
 
-        // Prefer network freshness, fall back to cache when offline — feels fastest for a browser.
         cacheMode = WebSettings.LOAD_DEFAULT
-        // Standards mode; quirks-only pages are rare and the perf cost is negligible.
         setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NORMAL)
-        // Never allow mixed content on modern Android — HTTPS-only.
         mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
-        // On modern Android these are already true by default; force it in case a device-vendor build flipped them.
         allowContentAccess = false
         allowFileAccess = false
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
@@ -75,5 +84,9 @@ object PerformanceTuner {
             @Suppress("DEPRECATION")
             allowUniversalAccessFromFileURLs = false
         }
+
+        // Append a Nevus product tag so downstream analytics can attribute traffic; keep the
+        // stock Chrome UA prefix intact so sites that gate on Chrome versioning still work.
+        userAgentString = "$userAgentString NevusBrowser/3.0"
     }
 }

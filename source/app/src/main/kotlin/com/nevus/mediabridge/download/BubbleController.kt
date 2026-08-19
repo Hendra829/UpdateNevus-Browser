@@ -1,6 +1,8 @@
 package com.nevus.mediabridge.download
 
+import android.content.ComponentCallbacks
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
 import android.util.DisplayMetrics
@@ -19,7 +21,7 @@ import kotlin.math.min
 /**
  * Draws, positions, and drives touch on the floating download bubble overlay.
  *
- * Not a full-blown floating menu — the bubble is a single tap surface:
+ * The bubble is a single tap surface:
  *  - **Tap** → invokes [onTap] (bubble service opens the pending-media picker).
  *  - **Drag** → moves the bubble around; on release it snaps to the nearest screen edge.
  *  - **Badge** → shows the count of pending media (video/audio/image/music) detected but not
@@ -27,6 +29,9 @@ import kotlin.math.min
  *
  * Uses `TYPE_APPLICATION_OVERLAY` (Android 8+) which requires the SYSTEM_ALERT_WINDOW
  * permission; the caller must gate creation on `Settings.canDrawOverlays(context)`.
+ *
+ * Rotation-safe: registers a [ComponentCallbacks] and re-snaps to the nearest edge whenever the
+ * configuration changes, so the bubble never gets marooned off-screen after a rotation.
  */
 class BubbleController(
     private val context: Context,
@@ -48,7 +53,6 @@ class BubbleController(
         PixelFormat.TRANSLUCENT,
     ).apply {
         gravity = Gravity.TOP or Gravity.START
-        // Start near the right edge, one third down.
         val dm = context.resources.displayMetrics
         x = dm.widthPixels - dip(72)
         y = dm.heightPixels / 3
@@ -58,13 +62,24 @@ class BubbleController(
     private var pendingCount = 0
     private var topGlyphKind: MediaKind? = null
 
+    private val configListener = object : ComponentCallbacks {
+        override fun onConfigurationChanged(newConfig: Configuration) {
+            if (attached) snapToNearestEdge()
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun onLowMemory() = Unit
+    }
+
     fun attach() {
         if (attached) return
         attachTouchHandler()
         try {
             windowManager.addView(root, params)
             attached = true
+            root.contentDescription = context.getString(R.string.bubble_content_description)
             renderBadge()
+            context.registerComponentCallbacks(configListener)
         } catch (t: Throwable) {
             NevusLog.e(TAG, "Failed to attach bubble overlay", t)
         }
@@ -72,6 +87,7 @@ class BubbleController(
 
     fun detach() {
         if (!attached) return
+        runCatching { context.unregisterComponentCallbacks(configListener) }
         try {
             windowManager.removeView(root)
         } catch (t: Throwable) {
@@ -90,6 +106,10 @@ class BubbleController(
         badgeView.visibility = if (pendingCount > 0) View.VISIBLE else View.GONE
         badgeView.text = if (pendingCount > 99) "99+" else pendingCount.toString()
         glyphView.text = topGlyphKind?.glyph ?: "↓"
+        root.contentDescription = context.getString(
+            R.string.bubble_content_description_count,
+            pendingCount,
+        )
     }
 
     private fun attachTouchHandler() {
@@ -138,9 +158,10 @@ class BubbleController(
         val screenWidth = dm.widthPixels
         val screenHeight = dm.heightPixels
 
-        // Horizontal snap: choose whichever edge is closer.
         params.x = if (params.x + bubbleWidth / 2 < screenWidth / 2) 0 else screenWidth - bubbleWidth
-        params.y = min(max(0, params.y), screenHeight - bubbleHeight)
+        // Leave 24dp margin from top/bottom so the bubble never lands under the status bar.
+        val marginY = dip(24)
+        params.y = min(max(marginY, params.y), screenHeight - bubbleHeight - marginY)
         safeUpdateLayout()
     }
 

@@ -9,19 +9,40 @@ import android.net.Uri
  *
  * Strategy — fast path on extension first, then a small set of well-known streaming
  * containers and music-platform host hints. No network requests.
+ *
+ * Performance — a bounded LRU (default 512 entries) short-circuits repeat classifications for
+ * hot pages that request the same subresources dozens of times per second.
  */
-class MediaUrlDetector {
+class MediaUrlDetector(
+    private val cacheCapacity: Int = 512,
+) {
+
+    private val cache: MutableMap<String, MediaKind?> = object :
+        LinkedHashMap<String, MediaKind?>(cacheCapacity, 0.75f, /* accessOrder = */ true) {
+        override fun removeEldestEntry(eldest: Map.Entry<String, MediaKind?>): Boolean =
+            size > cacheCapacity
+    }
 
     fun classify(url: String): MediaKind? {
+        synchronized(cache) {
+            if (cache.containsKey(url)) return cache[url]
+        }
+        val result = classifyUncached(url)
+        synchronized(cache) { cache[url] = result }
+        return result
+    }
+
+    private fun classifyUncached(url: String): MediaKind? {
         val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return null
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "http" && scheme != "https" && scheme != "blob") return null
+
         val host = uri.host?.lowercase().orEmpty()
         val path = uri.path?.lowercase().orEmpty()
         val extension = path.substringAfterLast('.', missingDelimiterValue = "")
 
-        // Fast reject: obvious non-media types.
         if (extension in NON_MEDIA_EXT) return null
 
-        // Extension → kind.
         val byExt: MediaKind? = when (extension) {
             in VIDEO_EXT -> MediaKind.VIDEO
             in IMAGE_EXT -> MediaKind.IMAGE
@@ -30,7 +51,6 @@ class MediaUrlDetector {
         }
         if (byExt != null) return byExt
 
-        // Fallback: streaming manifest containers with query-embedded media hints.
         if (extension == "m3u8" || extension == "mpd" || path.contains("/hls/") || path.contains("/dash/")) {
             return MediaKind.VIDEO
         }
@@ -45,8 +65,12 @@ class MediaUrlDetector {
         return MUSIC_HINTS.any { hint -> hint in path || hint in query }
     }
 
+    /** Drop the cache — useful when the WebView is torn down. */
+    fun clearCache() {
+        synchronized(cache) { cache.clear() }
+    }
+
     companion object {
-        // Deliberately conservative: only kinds we can name/save/categorise.
         private val VIDEO_EXT = setOf(
             "mp4", "m4v", "mkv", "webm", "avi", "mov", "3gp", "ts", "mpg", "mpeg", "flv", "wmv",
         )
@@ -74,5 +98,16 @@ class MediaUrlDetector {
             "music.apple.com",
             "www.deezer.com",
         )
+
+        /** Map a MIME type (e.g. from `WebView.setDownloadListener`) to a [MediaKind]. */
+        fun mimeToKind(mime: String?): MediaKind? = when {
+            mime == null -> null
+            mime.startsWith("video/", ignoreCase = true) -> MediaKind.VIDEO
+            mime.startsWith("image/", ignoreCase = true) -> MediaKind.IMAGE
+            mime.startsWith("audio/", ignoreCase = true) -> MediaKind.AUDIO
+            mime.equals("application/vnd.apple.mpegurl", ignoreCase = true) -> MediaKind.VIDEO
+            mime.equals("application/dash+xml", ignoreCase = true) -> MediaKind.VIDEO
+            else -> null
+        }
     }
 }

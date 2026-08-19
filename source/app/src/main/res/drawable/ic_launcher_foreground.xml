@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Downward arrow inside a rounded circle — mirrors the bubble glyph. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,26 C46.27,26 40,32.27 40,40 v18.34 l-6.34,-6.34 a4,4 0 0,0 -5.66,5.66 l13.18,13.18 a4,4 0 0,0 5.66,0 l13.18,-13.18 a4,4 0 0,0 -5.66,-5.66 L48,58.34 V40 c0,-3.31 2.69,-6 6,-6 3.31,0 6,2.69 6,6 v18.34 l6.34,-6.34 a4,4 0 0,1 5.66,5.66 l-13.18,13.18 a4,4 0 0,1 -5.66,0 L40.83,71.66 A18,18 0 0,1 40,66 V40 C40,32.27 46.27,26 54,26 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,82 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+</vector>
