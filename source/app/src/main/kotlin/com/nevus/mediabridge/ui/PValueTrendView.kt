@@ -26,6 +26,7 @@ class PValueTrendView @JvmOverloads constructor(
     private val monobitPaint = linePaint(R.color.nevus_kind_video)
     private val runsPaint = linePaint(R.color.nevus_kind_audio)
     private val chiPaint = linePaint(R.color.nevus_kind_music)
+    private val blockFreqPaint = linePaint(R.color.nevus_accent)
     private val thresholdPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.nevus_ink)
         alpha = 90
@@ -59,6 +60,7 @@ class PValueTrendView @JvmOverloads constructor(
         drawLine(canvas, w, h, monobitPaint) { it.monobitP }
         drawLine(canvas, w, h, runsPaint) { it.runsP }
         drawLine(canvas, w, h, chiPaint) { it.chiSquareP }
+        drawLine(canvas, w, h, blockFreqPaint) { it.blockFrequencyP }
     }
 
     private fun drawLine(

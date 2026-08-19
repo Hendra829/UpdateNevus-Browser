@@ -22,6 +22,8 @@
     <string name="download_queued_generic">Gambar ditambahkan ke antrean unduhan</string>
     <string name="save_image_prompt">Simpan gambar ini?</string>
     <string name="save_image_action">Simpan gambar</string>
+    <string name="save_video_prompt">Unduh video ini?</string>
+    <string name="save_audio_prompt">Unduh audio ini?</string>
 
     <string name="action_back">Kembali</string>
     <string name="action_forward">Maju</string>
@@ -47,16 +49,23 @@
     <string name="vpn_dns_mode_secure_dns">DNS Aman (DNS-over-HTTPS)</string>
     <string name="vpn_dns_mode_vpn">VPN (WireGuard, bawa server sendiri)</string>
     <string name="vpn_dns_provider_label">Penyedia DNS</string>
-    <string name="vpn_dns_import_config">Impor konfigurasi (.conf)</string>
-    <string name="vpn_dns_config_none">Belum ada konfigurasi WireGuard diimpor.</string>
-    <string name="vpn_dns_config_loaded">Konfigurasi WireGuard tersimpan.</string>
-    <string name="vpn_dns_config_import_failed">Gagal membaca file .conf — pastikan formatnya konfigurasi WireGuard yang valid.</string>
+    <string name="vpn_dns_profile_label">Profil server (maks. 10, server milik Anda sendiri)</string>
+    <string name="vpn_dns_import_config">Impor profil (.conf)</string>
+    <string name="vpn_dns_activate">Aktifkan VPN</string>
+    <string name="vpn_dns_config_none">Belum ada profil dipilih.</string>
+    <string name="vpn_dns_config_loaded">Profil aktif: %1$s</string>
+    <string name="vpn_dns_config_import_failed">Gagal mengimpor — pastikan file .conf valid dan slot profil (maks. 10) belum penuh.</string>
+    <string name="vpn_dns_no_profiles">Belum ada profil tersimpan — impor satu dulu.</string>
+    <string name="vpn_dns_profile_name_title">Nama profil</string>
+    <string name="vpn_dns_profile_name_hint">mis. Server Rumah</string>
+    <string name="vpn_dns_profile_deleted">Profil dihapus</string>
     <string name="vpn_dns_status_off">Status: nonaktif</string>
     <string name="vpn_dns_status_dns_on">Status: DNS Aman aktif (%1$s)</string>
-    <string name="vpn_dns_status_vpn_on">Status: VPN tersambung</string>
+    <string name="vpn_dns_status_vpn_on">Status: VPN tersambung (%1$s)</string>
     <string name="vpn_dns_status_vpn_connecting">Status: menyambungkan VPN…</string>
-    <string name="vpn_dns_status_vpn_failed">Status: VPN gagal tersambung — periksa konfigurasi</string>
     <string name="vpn_dns_permission_denied">Izin VPN sistem ditolak — mode tidak bisa diaktifkan.</string>
+    <string name="vpn_dns_turn_off">Matikan</string>
+    <string name="vpn_dns_turned_off">DNS Aman / VPN dimatikan</string>
 
     <string name="settings_general_enhance_default">Tingkatkan kualitas otomatis</string>
     <string name="settings_general_enhance_default_desc">Centang otomatis opsi \"Tingkatkan kualitas\" saat memulai unduhan baru.</string>
@@ -68,18 +77,26 @@
 
     <string name="settings_fast_connection_toggle">Aktifkan mode koneksi cepat</string>
     <string name="settings_fast_connection_desc">Menaikkan ukuran chunk unduhan dan memperpendek timeout koneksi — lebih cepat di jaringan stabil, tapi lebih sensitif terhadap koneksi yang tidak stabil.</string>
+    <string name="settings_speedtest_title">Tes Kecepatan</string>
+    <string name="settings_speedtest_desc">Ukur latency dan kecepatan unduh/unggah sungguhan (endpoint speed-test publik Cloudflare). Hasil unduh dipakai untuk menyesuaikan jumlah koneksi paralel di fitur \"Unduh cepat\".</string>
+    <string name="settings_speedtest_run">Mulai tes</string>
+    <string name="settings_speedtest_result">Latency: %1$s ms • Unduh: %2$s Mbps • Unggah: %3$s Mbps</string>
+    <string name="settings_speedtest_failed">Sebagian/semua pengukuran gagal — coba lagi.</string>
+    <string name="settings_speedtest_unavailable">—</string>
 
     <string name="settings_csprng_bytes_served">Bytes dihasilkan: %1$d</string>
     <string name="settings_csprng_reseed_generation">Generasi reseed: %1$d</string>
     <string name="settings_csprng_algorithm">Algoritma: %1$s</string>
     <string name="settings_csprng_evaluations">Evaluasi statistik: %1$d</string>
     <string name="settings_csprng_alarms">Alarm terdeteksi: %1$d</string>
-    <string name="settings_csprng_last_report">Tes terakhir (p-value) — monobit: %1$.4f, runs: %2$.4f, chi-square: %3$.4f</string>
+    <string name="settings_csprng_last_report">Tes terakhir (p-value) — monobit: %1$.4f, runs: %2$.4f, chi-square: %3$.4f, block-frequency: %4$.4f</string>
     <string name="settings_csprng_no_report">Belum ada evaluasi statistik.</string>
     <string name="settings_csprng_reseed_now">Reseed sekarang</string>
     <string name="settings_csprng_reseed_done">CSPRNG di-reseed manual</string>
+    <string name="settings_csprng_methodology_title">Metodologi &amp; batasan</string>
+    <string name="settings_csprng_methodology_body">Modul ini menjalankan sebagian dari battery tes NIST SP 800-22 (Frequency/monobit, Runs, Byte-histogram chi-square, Block Frequency) secara berkelanjutan pada sampel output CSPRNG lokal perangkat ini — bukan seluruh ~15 tes NIST, dan tidak tersambung ke dataset atau server eksternal mana pun (semua data tetap di perangkat). Sesuai penegasan NIST sendiri: lolos sekumpulan tes statistik TIDAK membuktikan sebuah generator aman/acak secara absolut — hasil di bawah ini adalah indikator kualitas untuk audit/QA, bukan jaminan mutlak, dan sama sekali bukan alat prediksi hasil apa pun.</string>
     <string name="settings_csprng_trend_title">Tren p-value (20 evaluasi terakhir)</string>
-    <string name="settings_csprng_trend_desc">Merah=monobit, hijau=runs, ungu=chi-square. Garis putus-putus = ambang alarm — dipakai untuk memeriksa kualitas, bukan memprediksi hasil.</string>
+    <string name="settings_csprng_trend_desc">Merah=monobit, hijau=runs, ungu=chi-square, biru=block-frequency. Garis putus-putus = ambang alarm — dipakai untuk memeriksa kualitas, bukan memprediksi hasil.</string>
     <string name="settings_csprng_bitmap_title">Pola visual RNG</string>
     <string name="settings_csprng_bitmap_desc">Sampel bit acak sebagai gambar — RNG yang sehat terlihat seperti noise polos. Garis/kotak yang terlihat menandakan bias, bukan pola yang bisa diprediksi.</string>
     <string name="settings_csprng_bitmap_refresh">Ambil sampel baru</string>

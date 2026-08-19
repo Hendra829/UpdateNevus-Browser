@@ -164,7 +164,46 @@
                     android:text="@string/settings_fast_connection_desc"
                     android:textColor="@color/nevus_ink"
                     android:alpha="0.7"
-                    android:textSize="13sp" />
+                    android:textSize="13sp"
+                    android:layout_marginBottom="20dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_speedtest_title"
+                    android:textColor="@color/nevus_ink"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_speedtest_desc"
+                    android:textColor="@color/nevus_ink"
+                    android:alpha="0.7"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/runSpeedTestBtn"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/settings_speedtest_run" />
+
+                <com.google.android.material.progressindicator.LinearProgressIndicator
+                    android:id="@+id/speedTestProgress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:indeterminate="true"
+                    android:visibility="gone"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/speedTestResult"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink" />
             </LinearLayout>
 
             <!-- ─────────── Audit CSPRNG ─────────── -->
@@ -174,6 +213,22 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_csprng_methodology_title"
+                    android:textColor="@color/nevus_ink"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="4dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_csprng_methodology_body"
+                    android:textColor="@color/nevus_ink"
+                    android:alpha="0.7"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="16dp" />
 
                 <TextView
                     android:id="@+id/csprngBytesServed"
@@ -359,17 +414,51 @@
                     android:visibility="gone">
 
                     <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/vpn_dns_profile_label"
+                        android:textColor="@color/nevus_ink"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+                    <Spinner
+                        android:id="@+id/vpnProfileSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/importConfigBtn"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/vpn_dns_import_config" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/deleteProfileBtn"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/action_delete" />
+                    </LinearLayout>
+
+                    <TextView
                         android:id="@+id/vpnConfigStatus"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textColor="@color/nevus_ink"
                         android:layout_marginBottom="8dp" />
+
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/importConfigBtn"
-                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:id="@+id/connectVpnBtn"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/vpn_dns_import_config" />
+                        android:text="@string/vpn_dns_activate" />
                 </LinearLayout>
 
                 <TextView
@@ -378,7 +467,16 @@
                     android:layout_height="wrap_content"
                     android:textColor="@color/nevus_ink"
                     android:textStyle="bold"
-                    android:layout_marginTop="12dp" />
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/turnOffNetworkModeBtn"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:text="@string/vpn_dns_turn_off" />
             </LinearLayout>
 
         </FrameLayout>

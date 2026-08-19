@@ -105,6 +105,38 @@ internal object NistTests {
         return chiSquareUpperTailP(chi, df = 255)
     }
 
+    /**
+     * NIST SP 800-22 §2.2 — Block Frequency test.
+     *
+     * Splits the stream into fixed-size blocks and checks that each block's own 1-fraction is
+     * close to 0.5, not just the overall stream (the monobit test can pass on a stream that is
+     * locally biased in a way that cancels out globally — e.g. alternating long runs of mostly-1
+     * and mostly-0 blocks). [blockBits] defaults to 1024, satisfying NIST's recommended
+     * `M > 0.01n` and `N < 100` bounds for the engine's default 8192-byte (65536-bit) window.
+     */
+    fun blockFrequency(bytes: ByteArray, offset: Int, length: Int, blockBits: Int = 1024): Double {
+        val totalBits = length * 8
+        val numBlocks = totalBits / blockBits
+        require(numBlocks >= 1) { "stream too short for a $blockBits-bit block" }
+
+        var chiSum = 0.0
+        for (blockIndex in 0 until numBlocks) {
+            var ones = 0
+            val blockStartBit = blockIndex * blockBits
+            for (bitOffset in 0 until blockBits) {
+                val globalBit = blockStartBit + bitOffset
+                val byteIndex = offset + globalBit / 8
+                val bitInByte = 7 - (globalBit % 8)
+                ones += (bytes[byteIndex].toInt() ushr bitInByte) and 1
+            }
+            val pi = ones.toDouble() / blockBits
+            val d = pi - 0.5
+            chiSum += d * d
+        }
+        val chiSquare = 4.0 * blockBits * chiSum
+        return chiSquareUpperTailP(chiSquare, df = numBlocks)
+    }
+
     // ─────────── numeric helpers ───────────
 
     private const val SQRT_2 = 1.41421356237309504880

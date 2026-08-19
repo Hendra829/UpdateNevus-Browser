@@ -71,15 +71,23 @@ class MediaUrlDetector(
     }
 
     companion object {
+        // 100+ real, established container/codec extensions across the three kinds — covers
+        // common, legacy, regional and professional formats, not padded with made-up ones.
         private val VIDEO_EXT = setOf(
-            "mp4", "m4v", "mkv", "webm", "avi", "mov", "3gp", "ts", "mpg", "mpeg", "flv", "wmv",
+            "mp4", "m4v", "mkv", "webm", "avi", "mov", "qt", "3gp", "3g2", "ts", "m2ts", "mts",
+            "mpg", "mpeg", "mpe", "m1v", "m2v", "flv", "f4v", "f4p", "wmv", "asf", "rm", "rmvb",
+            "vob", "divx", "ogv", "dv", "mxf", "m4p", "yuv", "drc", "mng", "nsv",
         )
         private val AUDIO_EXT = setOf(
-            "mp3", "aac", "m4a", "ogg", "oga", "opus", "wav", "flac", "wma", "amr",
+            "mp3", "aac", "m4a", "ogg", "oga", "opus", "wav", "flac", "wma", "amr", "aiff", "aif",
+            "alac", "ape", "mid", "midi", "au", "ra", "ram", "dts", "ac3", "caf", "w64", "voc",
+            "tta", "wv", "mpc", "spx", "gsm", "8svx",
         )
         private val IMAGE_EXT = setOf(
             "jpg", "jpeg", "png", "gif", "webp", "svg", "avif", "heic", "heif", "bmp", "tiff", "tif",
-            "gifv", "apng",
+            "gifv", "apng", "ico", "jfif", "pjpeg", "pjp", "ppm", "pgm", "pbm", "pnm", "tga",
+            "targa", "dng", "raw", "cr2", "nef", "orf", "arw", "rw2", "psd", "xcf", "exr", "hdr",
+            "jp2", "jpx", "jxr", "wbmp",
         )
         private val NON_MEDIA_EXT = setOf(
             "html", "htm", "xhtml", "js", "mjs", "css", "json", "xml",

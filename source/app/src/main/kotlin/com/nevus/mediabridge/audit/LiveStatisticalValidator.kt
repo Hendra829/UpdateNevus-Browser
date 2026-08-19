@@ -59,6 +59,7 @@ class LiveStatisticalValidator(
     private var monobitConsecutiveFails = 0
     private var runsConsecutiveFails = 0
     private var chiConsecutiveFails = 0
+    private var blockFreqConsecutiveFails = 0
 
     private val lastReport = AtomicReference<TestReport?>(null)
     private val alarmListener = AtomicReference<((AlarmReport) -> Unit)?>(null)
@@ -119,6 +120,7 @@ class LiveStatisticalValidator(
         monobitP = NistTests.monobit(snapshot, 0, snapshot.size),
         runsP = NistTests.runs(snapshot, 0, snapshot.size),
         chiSquareP = NistTests.byteHistogramChiSquare(snapshot, 0, snapshot.size),
+        blockFrequencyP = NistTests.blockFrequency(snapshot, 0, snapshot.size),
         windowBytes = snapshot.size,
         atByteCount = bytesObserved.get(),
     )
@@ -127,15 +129,18 @@ class LiveStatisticalValidator(
         val monobitFail = report.monobitP < alarmPValue
         val runsFail = report.runsP < alarmPValue
         val chiFail = report.chiSquareP < alarmPValue
+        val blockFreqFail = report.blockFrequencyP < alarmPValue
 
         monobitConsecutiveFails = if (monobitFail) monobitConsecutiveFails + 1 else 0
         runsConsecutiveFails = if (runsFail) runsConsecutiveFails + 1 else 0
         chiConsecutiveFails = if (chiFail) chiConsecutiveFails + 1 else 0
+        blockFreqConsecutiveFails = if (blockFreqFail) blockFreqConsecutiveFails + 1 else 0
 
         val triggered = buildList {
             if (monobitConsecutiveFails >= alarmConsecutive) add(Trigger.MONOBIT to report.monobitP)
             if (runsConsecutiveFails >= alarmConsecutive) add(Trigger.RUNS to report.runsP)
             if (chiConsecutiveFails >= alarmConsecutive) add(Trigger.CHI_SQUARE to report.chiSquareP)
+            if (blockFreqConsecutiveFails >= alarmConsecutive) add(Trigger.BLOCK_FREQUENCY to report.blockFrequencyP)
         }
         if (triggered.isEmpty()) return
 
@@ -149,6 +154,7 @@ class LiveStatisticalValidator(
         if (Trigger.MONOBIT in alarm.triggered) monobitConsecutiveFails = 0
         if (Trigger.RUNS in alarm.triggered) runsConsecutiveFails = 0
         if (Trigger.CHI_SQUARE in alarm.triggered) chiConsecutiveFails = 0
+        if (Trigger.BLOCK_FREQUENCY in alarm.triggered) blockFreqConsecutiveFails = 0
 
         alarmListener.get()?.invoke(alarm)
     }
@@ -163,12 +169,13 @@ class LiveStatisticalValidator(
         recentReports = synchronized(recentReports) { recentReports.toList() },
     )
 
-    enum class Trigger { MONOBIT, RUNS, CHI_SQUARE }
+    enum class Trigger { MONOBIT, RUNS, CHI_SQUARE, BLOCK_FREQUENCY }
 
     data class TestReport(
         val monobitP: Double,
         val runsP: Double,
         val chiSquareP: Double,
+        val blockFrequencyP: Double,
         val windowBytes: Int,
         val atByteCount: Long,
     )

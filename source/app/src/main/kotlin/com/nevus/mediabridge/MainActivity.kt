@@ -15,6 +15,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.GeolocationPermissions
+import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -163,6 +164,7 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 progress.isVisible = false
                 updateNavButtons()
+                view?.evaluateJavascript(MEDIA_LONG_PRESS_JS, null)
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
@@ -190,6 +192,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.download_queued, guessedName), Toast.LENGTH_SHORT).show()
         }
         wireImageLongPress()
+        webView.addJavascriptInterface(MediaLongPressBridge(), JS_BRIDGE_NAME)
         NevusLog.i(TAG, "WebView engine: ${PerformanceTuner.currentEngineInfo(this)}")
     }
 
@@ -216,6 +219,35 @@ class MainActivity : AppCompatActivity() {
                 .setNegativeButton(R.string.download_options_cancel, null)
                 .show()
             true
+        }
+    }
+
+    /**
+     * WebView's native `hitTestResult` (used for [wireImageLongPress]) has no type for HTML5
+     * `<video>`/`<audio>` elements, so long-press detection for those is done in-page via
+     * injected JS + this bridge. The listener is `contextmenu` (fires on long-press in Android
+     * WebView, same gesture as [wireImageLongPress]), not `click` — a plain tap has to keep
+     * playing/pausing the media normally, not pop a download prompt on every tap.
+     */
+    private inner class MediaLongPressBridge {
+        @JavascriptInterface
+        fun onLongPress(url: String, tag: String) {
+            // JS interface calls land on a worker thread, and the input is page-controlled —
+            // validate the scheme ourselves rather than trusting it, same invariant the rest of
+            // the download pipeline enforces.
+            val scheme = runCatching { Uri.parse(url).scheme }.getOrNull()?.lowercase()
+            if (scheme != "http" && scheme != "https") return
+            val kind = if (tag.equals("audio", ignoreCase = true)) MediaKind.AUDIO else MediaKind.VIDEO
+            runOnUiThread {
+                AlertDialog.Builder(this@MainActivity)
+                    .setMessage(if (kind == MediaKind.AUDIO) R.string.save_audio_prompt else R.string.save_video_prompt)
+                    .setPositiveButton(R.string.save_image_action) { _, _ ->
+                        FloatingBubbleService.notifyDetected(applicationContext, url, kind, referer = webView.url)
+                        Toast.makeText(this@MainActivity, R.string.download_queued_generic, Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton(R.string.download_options_cancel, null)
+                    .show()
+            }
         }
     }
 
@@ -352,5 +384,37 @@ class MainActivity : AppCompatActivity() {
 
     private companion object {
         const val TAG = "MainActivity"
+        const val JS_BRIDGE_NAME = "NevusMediaBridge"
+
+        // Re-injected on every onPageFinished — cheap, idempotent (the __nevusBound marker
+        // skips elements already wired), and covers SPA-added <video>/<audio> via the observer.
+        const val MEDIA_LONG_PRESS_JS = """
+            (function() {
+                function resolveSrc(el) {
+                    if (el.currentSrc) return el.currentSrc;
+                    if (el.src) return el.src;
+                    var source = el.querySelector('source[src]');
+                    return source ? source.src : null;
+                }
+                function attach(el) {
+                    if (el.__nevusBound) return;
+                    el.__nevusBound = true;
+                    el.addEventListener('contextmenu', function(ev) {
+                        var url = resolveSrc(el);
+                        if (!url) return;
+                        ev.preventDefault();
+                        window.$JS_BRIDGE_NAME.onLongPress(url, el.tagName.toLowerCase());
+                    });
+                }
+                function scan() {
+                    document.querySelectorAll('video, audio').forEach(attach);
+                }
+                scan();
+                if (!window.__nevusObserverBound) {
+                    window.__nevusObserverBound = true;
+                    new MutationObserver(scan).observe(document.documentElement, {childList: true, subtree: true});
+                }
+            })();
+        """
     }
 }

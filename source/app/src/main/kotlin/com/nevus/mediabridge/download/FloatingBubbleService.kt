@@ -234,8 +234,10 @@ class FloatingBubbleService : Service() {
             eng.enqueueVariant(request, resolved)
         } else if (plan.segmented) {
             // Parallel-Range accelerator only applies to a plain progressive URL — HLS/DASH
-            // already downloads via its own segment list above.
-            eng.enqueueSegmented(request)
+            // already downloads via its own segment list above. Scale the connection count to
+            // the last measured real throughput (NetworkSpeedTest) — more parallel connections
+            // help on a fast link with headroom, but just add overhead on a slow one.
+            eng.enqueueSegmented(request, segments = segmentCountFor(NevusSettings(applicationContext).lastMeasuredDownloadMbps))
         } else {
             eng.enqueue(request)
         }
@@ -313,6 +315,19 @@ class FloatingBubbleService : Service() {
 
     // ─────────── helpers ───────────
 
+    /**
+     * More parallel Range connections only help when there's bandwidth headroom for them to use
+     * — on a slow link they mostly just add per-connection overhead. Thresholds are a simple,
+     * defensible heuristic (not a magic "AI" figure): scale up with measured throughput, default
+     * to the full [DEFAULT_SEGMENT_COUNT] only once a speed test has actually shown room for it.
+     */
+    private fun segmentCountFor(measuredMbps: Float?): Int = when {
+        measuredMbps == null -> DEFAULT_SEGMENT_COUNT
+        measuredMbps < 5f -> 4
+        measuredMbps < 20f -> 10
+        else -> DEFAULT_SEGMENT_COUNT
+    }
+
     private fun logHistory(
         txId: String,
         status: DownloadHistoryEntry.Status,
@@ -374,6 +389,7 @@ class FloatingBubbleService : Service() {
         private const val FAST_CHUNK_BYTES = 256 * 1024
         private const val DEFAULT_CONNECT_TIMEOUT_MS = 15_000
         private const val FAST_CONNECT_TIMEOUT_MS = 8_000
+        private const val DEFAULT_SEGMENT_COUNT = 20
 
         /** Cap on retained pending detections — silently drops old entries past this. */
         private const val MAX_PENDING = 64
