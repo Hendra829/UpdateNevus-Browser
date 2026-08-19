@@ -67,6 +67,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/settings_tab_recovery" />
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_tab_vpn_dns" />
     </com.google.android.material.tabs.TabLayout>
 
     <ScrollView
@@ -284,6 +288,97 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="@color/nevus_ink" />
+            </LinearLayout>
+
+            <!-- ─────────── VPN & DNS ─────────── -->
+            <LinearLayout
+                android:id="@+id/sectionVpnDns"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/vpn_dns_note"
+                    android:textColor="@color/nevus_ink"
+                    android:alpha="0.7"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="12dp" />
+
+                <RadioGroup
+                    android:id="@+id/networkModeGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp">
+
+                    <RadioButton
+                        android:id="@+id/networkModeOff"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="@string/vpn_dns_mode_off" />
+                    <RadioButton
+                        android:id="@+id/networkModeDns"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/vpn_dns_mode_secure_dns" />
+                    <RadioButton
+                        android:id="@+id/networkModeVpn"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/vpn_dns_mode_vpn" />
+                </RadioGroup>
+
+                <LinearLayout
+                    android:id="@+id/dnsProviderSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/vpn_dns_provider_label"
+                        android:textColor="@color/nevus_ink"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+                    <Spinner
+                        android:id="@+id/dohProviderSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/vpnConfigSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/vpnConfigStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/nevus_ink"
+                        android:layout_marginBottom="8dp" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/importConfigBtn"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/vpn_dns_import_config" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/networkModeStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/nevus_ink"
+                    android:textStyle="bold"
+                    android:layout_marginTop="12dp" />
             </LinearLayout>
 
         </FrameLayout>

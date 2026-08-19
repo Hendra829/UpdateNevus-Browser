@@ -13,6 +13,7 @@ webkit = "1.11.0"
 recyclerview = "1.3.2"
 media3 = "1.4.1"
 mlkitSubjectSegmentation = "16.0.0-beta1"
+wireguardTunnel = "1.0.20230706"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -32,6 +33,7 @@ media3-effect = { group = "androidx.media3", name = "media3-effect", version.ref
 media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }
 media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 mlkit-subject-segmentation = { group = "com.google.android.gms", name = "play-services-mlkit-subject-segmentation", version.ref = "mlkitSubjectSegmentation" }
+wireguard-tunnel = { group = "com.wireguard.android", name = "tunnel", version.ref = "wireguardTunnel" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

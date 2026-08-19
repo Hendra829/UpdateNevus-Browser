@@ -12,6 +12,8 @@ data class DownloadPlan(
     val targetHeightPx: Int?,
     val enhance: Boolean,
     val stickerMode: StickerMode = StickerMode.NONE,
+    /** Split into ~20 parallel Range connections and merge (see [DownloadEngine.enqueueSegmented]). Ignored when [chosenVariant] is set — HLS/DASH already downloads via its own segments. */
+    val segmented: Boolean = false,
 )
 
 /** How (if at all) to also produce a sticker-style copy of a downloaded image — see [com.nevus.mediabridge.media.StickerMaker]. */

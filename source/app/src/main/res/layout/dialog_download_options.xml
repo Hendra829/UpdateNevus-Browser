@@ -93,6 +93,22 @@
         </RadioGroup>
 
         <CheckBox
+            android:id="@+id/segmentedCheckbox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp"
+            android:text="@string/download_options_segmented" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/download_options_segmented_desc"
+            android:textColor="@color/nevus_ink"
+            android:alpha="0.7"
+            android:textSize="12sp"
+            android:layout_marginBottom="12dp" />
+
+        <CheckBox
             android:id="@+id/enhanceCheckbox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -92,5 +92,25 @@
                 android:value="floating_download_bubble_overlay" />
         </service>
 
+        <!-- "DNS Aman" mode: DNS-only local tunnel, see NevusVpnService kdoc. -->
+        <service
+            android:name=".vpn.NevusVpnService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
+
+        <!-- "VPN" mode: WireGuard client (com.wireguard.android:tunnel) — user brings their own server. -->
+        <service
+            android:name="com.wireguard.android.backend.GoBackend$VpnService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
+
     </application>
 </manifest>

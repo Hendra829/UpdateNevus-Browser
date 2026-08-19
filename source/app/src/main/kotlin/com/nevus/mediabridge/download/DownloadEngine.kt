@@ -8,10 +8,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import java.io.BufferedInputStream
@@ -19,10 +24,12 @@ import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl.HttpsURLConnection
 import kotlin.coroutines.coroutineContext
 
@@ -109,6 +116,22 @@ class DownloadEngine(
     fun enqueueVariant(request: DownloadRequest, resolved: ResolvedVariant): Job {
         jobs[request.txId]?.let { existing -> if (existing.isActive) return existing }
         val job = scope.launch(Dispatchers.IO) { runVariant(request, resolved) }
+        jobs[request.txId] = job
+        job.invokeOnCompletion { jobs.remove(request.txId, job) }
+        return job
+    }
+
+    /**
+     * Download accelerator: split the body across up to [segments] concurrent `Range` requests
+     * writing directly into disjoint byte offsets of the pre-sized output file, then verify with
+     * one sequential SHA-256 pass. Falls back to the plain single-stream [run] — not an error —
+     * when the server doesn't answer `206` to a Range probe, doesn't report a length, or the
+     * body is too small for splitting to be worth it. No pause/resume here (like
+     * [enqueueVariant]): cancelling always discards, a retry restarts from zero.
+     */
+    fun enqueueSegmented(request: DownloadRequest, segments: Int = DEFAULT_SEGMENT_COUNT): Job {
+        jobs[request.txId]?.let { existing -> if (existing.isActive) return existing }
+        val job = scope.launch(Dispatchers.IO) { runSegmented(request, segments) }
         jobs[request.txId] = job
         job.invokeOnCompletion { jobs.remove(request.txId, job) }
         return job
@@ -303,6 +326,146 @@ class DownloadEngine(
         }
     }
 
+    private suspend fun runSegmented(request: DownloadRequest, requestedSegments: Int) {
+        val parsed = runCatching { URL(request.url) }.getOrNull()
+        if (parsed == null || parsed.protocol.lowercase() != "https") {
+            emit(DownloadEvent.Failed(request.txId, "rejecting non-HTTPS url: ${request.url}"))
+            return
+        }
+
+        val probe = probeRangeSupport(parsed, request)
+        val total = probe.totalBytes
+        if (!probe.supportsRange || total == null || total < MIN_SEGMENTED_BYTES) {
+            // Server doesn't support Range, or the body's too small to be worth splitting —
+            // this is not a failure, just fall back to the plain single-stream path.
+            run(request)
+            return
+        }
+        if (total > maxBytes) {
+            emit(DownloadEvent.Failed(request.txId, "declared size $total exceeds cap $maxBytes"))
+            return
+        }
+
+        val target: File = try {
+            resolveTargetFile(request)
+        } catch (t: Throwable) {
+            emit(DownloadEvent.Failed(request.txId, "cannot resolve target: ${t.message}", t))
+            return
+        }
+
+        val segmentCount = requestedSegments.coerceAtMost((total / MIN_SEGMENT_BYTES).toInt().coerceAtLeast(1))
+        val ranges = computeRanges(total, segmentCount)
+
+        try {
+            RandomAccessFile(target, "rw").use { it.setLength(total) }
+        } catch (t: Throwable) {
+            emit(DownloadEvent.Failed(request.txId, "cannot allocate ${target.name}: ${t.message}", t))
+            return
+        }
+
+        val totalRead = AtomicLong(0L)
+        emit(DownloadEvent.Started(request.txId, total))
+
+        try {
+            coroutineScope {
+                val reporter = launch {
+                    while (isActive) {
+                        delay(100)
+                        emit(DownloadEvent.Progress(request.txId, totalRead.get(), total))
+                    }
+                }
+                try {
+                    ranges.map { range -> async(Dispatchers.IO) { downloadSegment(parsed, request, range, target, totalRead) } }
+                        .awaitAll()
+                } finally {
+                    reporter.cancel()
+                }
+            }
+
+            val digest = MessageDigest.getInstance("SHA-256")
+            BufferedInputStream(FileInputStream(target), chunkBytes).use { input ->
+                val buf = ByteArray(chunkBytes)
+                while (true) {
+                    val n = input.read(buf)
+                    if (n < 0) break
+                    digest.update(buf, 0, n)
+                }
+            }
+            val sha = digest.digest().toHex()
+            triggerMediaScan(target, request.kind, request.fileName ?: target.name)
+            emit(DownloadEvent.Completed(request.txId, target.absolutePath, sha, total))
+        } catch (ce: CancellationException) {
+            // No per-segment resume — cancelling a multi-connection download always discards.
+            discardOnCancel.remove(request.txId)
+            runCatching { target.delete() }
+            emit(DownloadEvent.Cancelled(request.txId))
+            throw ce
+        } catch (t: Throwable) {
+            runCatching { target.delete() }
+            emit(DownloadEvent.Failed(request.txId, t.message ?: t.javaClass.simpleName, t))
+        }
+    }
+
+    /** Streams one byte range into its slice of [target] via a seeked [RandomAccessFile]. */
+    private suspend fun downloadSegment(parsed: URL, request: DownloadRequest, range: LongRange, target: File, totalRead: AtomicLong) {
+        val conn = openConnection(parsed, request, rangeStart = range.first)
+        conn.setRequestProperty("Range", "bytes=${range.first}-${range.last}")
+        try {
+            val status = conn.responseCode
+            if (status != HttpURLConnection.HTTP_PARTIAL) {
+                throw IllegalStateException("segment ${range.first}-${range.last} HTTP $status (expected 206)")
+            }
+            RandomAccessFile(target, "rw").use { raf ->
+                raf.seek(range.first)
+                BufferedInputStream(conn.inputStream, chunkBytes).use { input ->
+                    val buf = ByteArray(chunkBytes)
+                    while (true) {
+                        coroutineContext.ensureActive()
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        raf.write(buf, 0, n)
+                        totalRead.addAndGet(n.toLong())
+                    }
+                }
+            }
+        } finally {
+            runCatching { conn.disconnect() }
+        }
+    }
+
+    /** Splits [total] bytes into [count] roughly-equal, contiguous, gap-free byte ranges. */
+    private fun computeRanges(total: Long, count: Int): List<LongRange> {
+        val size = total / count
+        return (0 until count).map { i ->
+            val start = i * size
+            val end = if (i == count - 1) total - 1 else start + size - 1
+            start..end
+        }
+    }
+
+    private data class SegmentProbe(val supportsRange: Boolean, val totalBytes: Long?)
+
+    /** A tiny `bytes=0-0` Range request — enough to learn support + total size without a real fetch. */
+    private fun probeRangeSupport(parsed: URL, request: DownloadRequest): SegmentProbe {
+        val conn = try {
+            openConnection(parsed, request, rangeStart = 0L)
+        } catch (t: Throwable) {
+            return SegmentProbe(false, null)
+        }
+        conn.setRequestProperty("Range", "bytes=0-0")
+        return try {
+            if (conn.responseCode == HttpURLConnection.HTTP_PARTIAL) {
+                SegmentProbe(true, declaredTotalBytes(conn, startOffset = 0L))
+            } else {
+                SegmentProbe(false, null)
+            }
+        } catch (t: Throwable) {
+            SegmentProbe(false, null)
+        } finally {
+            runCatching { conn.disconnect() }
+        }
+    }
+
     /** Feed bytes already on disk from a prior attempt into [digest] so the final hash covers the whole file. */
     private fun rehashExisting(partFile: File, digest: MessageDigest) {
         BufferedInputStream(FileInputStream(partFile), chunkBytes).use { existing ->
@@ -404,5 +567,9 @@ class DownloadEngine(
         const val DEFAULT_UA = "NevusBrowser/3.0 (Android; media-bridge)"
         const val PART_SUFFIX = ".part"
         val HEX = "0123456789abcdef".toCharArray()
+
+        const val DEFAULT_SEGMENT_COUNT = 20
+        const val MIN_SEGMENT_BYTES = 256 * 1024
+        const val MIN_SEGMENTED_BYTES = 2L * 1024 * 1024
     }
 }

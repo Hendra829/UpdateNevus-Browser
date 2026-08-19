@@ -232,6 +232,10 @@ class FloatingBubbleService : Service() {
                 return
             }
             eng.enqueueVariant(request, resolved)
+        } else if (plan.segmented) {
+            // Parallel-Range accelerator only applies to a plain progressive URL — HLS/DASH
+            // already downloads via its own segment list above.
+            eng.enqueueSegmented(request)
         } else {
             eng.enqueue(request)
         }

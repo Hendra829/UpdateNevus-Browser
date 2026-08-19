@@ -36,6 +36,7 @@ object DownloadOptionsDialog {
         val sourceQualitySpinner = view.findViewById<Spinner>(R.id.sourceQualitySpinner)
         val heightGroup = view.findViewById<RadioGroup>(R.id.dialogTargetHeightGroup)
         val enhanceCheckbox = view.findViewById<CheckBox>(R.id.enhanceCheckbox)
+        val segmentedCheckbox = view.findViewById<CheckBox>(R.id.segmentedCheckbox)
         val stickerLabel = view.findViewById<TextView>(R.id.stickerLabel)
         val stickerGroup = view.findViewById<RadioGroup>(R.id.stickerGroup)
 
@@ -100,6 +101,7 @@ object DownloadOptionsDialog {
                     targetHeightPx = targetHeight,
                     enhance = enhanceCheckbox.isChecked,
                     stickerMode = stickerMode,
+                    segmented = segmentedCheckbox.isChecked,
                 )
                 FloatingBubbleService.submitPlan(context.applicationContext, plan)
             }

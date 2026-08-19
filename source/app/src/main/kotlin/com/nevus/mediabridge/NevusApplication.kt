@@ -15,6 +15,7 @@ import com.nevus.mediabridge.download.FloatingBubbleService
 import com.nevus.mediabridge.state.RecoveryReport
 import com.nevus.mediabridge.state.StateRecoveryAnalyzer
 import com.nevus.mediabridge.util.NevusLog
+import com.nevus.mediabridge.vpn.WireGuardManager
 import kotlinx.serialization.builtins.serializer
 
 /**
@@ -42,6 +43,9 @@ class NevusApplication : Application() {
         private set
     lateinit var lastRecoveryReport: RecoveryReport
         private set
+
+    /** Application-scoped so its state (config, connection StateFlow) survives Activity recreation. */
+    val wireGuardManager: WireGuardManager by lazy { WireGuardManager(this) }
 
     override fun onCreate() {
         super.onCreate()

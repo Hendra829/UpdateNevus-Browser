@@ -40,6 +40,23 @@
     <string name="settings_tab_fast_connection">Koneksi Cepat</string>
     <string name="settings_tab_csprng">Audit CSPRNG</string>
     <string name="settings_tab_recovery">Riwayat &amp; Recovery</string>
+    <string name="settings_tab_vpn_dns">VPN &amp; DNS</string>
+
+    <string name="vpn_dns_note">Android cuma izinkan satu koneksi VPN aktif sekaligus — DNS Aman dan VPN saling menggantikan, bukan dua saklar terpisah. VPN di sini adalah client WireGuard; Anda perlu server WireGuard sendiri (bukan disediakan aplikasi ini).</string>
+    <string name="vpn_dns_mode_off">Nonaktif</string>
+    <string name="vpn_dns_mode_secure_dns">DNS Aman (DNS-over-HTTPS)</string>
+    <string name="vpn_dns_mode_vpn">VPN (WireGuard, bawa server sendiri)</string>
+    <string name="vpn_dns_provider_label">Penyedia DNS</string>
+    <string name="vpn_dns_import_config">Impor konfigurasi (.conf)</string>
+    <string name="vpn_dns_config_none">Belum ada konfigurasi WireGuard diimpor.</string>
+    <string name="vpn_dns_config_loaded">Konfigurasi WireGuard tersimpan.</string>
+    <string name="vpn_dns_config_import_failed">Gagal membaca file .conf — pastikan formatnya konfigurasi WireGuard yang valid.</string>
+    <string name="vpn_dns_status_off">Status: nonaktif</string>
+    <string name="vpn_dns_status_dns_on">Status: DNS Aman aktif (%1$s)</string>
+    <string name="vpn_dns_status_vpn_on">Status: VPN tersambung</string>
+    <string name="vpn_dns_status_vpn_connecting">Status: menyambungkan VPN…</string>
+    <string name="vpn_dns_status_vpn_failed">Status: VPN gagal tersambung — periksa konfigurasi</string>
+    <string name="vpn_dns_permission_denied">Izin VPN sistem ditolak — mode tidak bisa diaktifkan.</string>
 
     <string name="settings_general_enhance_default">Tingkatkan kualitas otomatis</string>
     <string name="settings_general_enhance_default_desc">Centang otomatis opsi \"Tingkatkan kualitas\" saat memulai unduhan baru.</string>
@@ -90,6 +107,8 @@
     <string name="download_options_source_quality_default">Kualitas sumber (default)</string>
     <string name="download_options_target_resolution">Resolusi target</string>
     <string name="download_options_enhance">Tingkatkan kualitas (kontras/ketajaman video &amp; gambar, bass/treble audio)</string>
+    <string name="download_options_segmented">Unduh cepat (pecah 20 bagian &amp; gabung otomatis)</string>
+    <string name="download_options_segmented_desc">Kalau server sumbernya mendukung, file dipecah jadi hingga 20 koneksi paralel lalu digabung jadi satu file utuh. Kalau tidak didukung, otomatis kembali ke unduhan biasa.</string>
     <string name="sticker_title">Jadikan stiker</string>
     <string name="sticker_none">Tidak</string>
     <string name="sticker_border">Border sederhana (.webp)</string>

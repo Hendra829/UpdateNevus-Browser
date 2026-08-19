@@ -90,4 +90,5 @@ dependencies {
     implementation(libs.media3.common)
     implementation(libs.media3.exoplayer)
     implementation(libs.mlkit.subject.segmentation)
+    implementation(libs.wireguard.tunnel)
 }
